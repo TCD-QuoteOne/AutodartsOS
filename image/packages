@@ -1,3 +1,7 @@
 plymouth
 plymouth-themes
-
+xserver-xorg
+xinit
+openbox
+chromium-browser
+unclutter

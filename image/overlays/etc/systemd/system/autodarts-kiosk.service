@@ -1,0 +1,17 @@
+[Unit]
+Description=Autodarts Pi OS kiosk display
+After=network-online.target autodarts-firstboot.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=autodarts
+Group=autodarts
+Environment=HOME=/home/autodarts
+Environment=XDG_RUNTIME_DIR=/tmp/runtime-autodarts
+ExecStart=/usr/local/bin/autodarts-kiosk
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

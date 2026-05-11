@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
+DEFAULT_URL="https://play.autodarts.io"
+
+config_value() {
+  local key="$1"
+  awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+config_bool() {
+  local key="$1"
+  awk -F '=' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+if [[ "$(config_bool kiosk_enabled)" == "false" ]]; then
+  echo "Autodarts kiosk is disabled by config."
+  sleep infinity
+fi
+
+URL="$(config_value kiosk_url)"
+URL="${URL:-$DEFAULT_URL}"
+HOST="$(printf '%s\n' "$URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
+
+mkdir -p "$HOME/.config/autodarts-pi-os" "$HOME/.config/chromium" "${XDG_RUNTIME_DIR:-/tmp/runtime-autodarts}"
+chmod 700 "${XDG_RUNTIME_DIR:-/tmp/runtime-autodarts}" || true
+
+while ! getent hosts "$HOST" >/dev/null 2>&1; do
+  echo "Waiting for DNS/network before starting kiosk..."
+  sleep 3
+done
+
+if [[ -n "${DISPLAY:-}" ]]; then
+  exec /usr/local/bin/autodarts-kiosk-session "$URL"
+fi
+
+exec xinit /usr/local/bin/autodarts-kiosk-session "$URL" -- :0 -nolisten tcp vt7

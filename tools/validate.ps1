@@ -9,14 +9,18 @@ $required = @(
   "image/overlays/etc/systemd/system/autodarts-runtime.service",
   "image/overlays/etc/systemd/system/autodarts-watchdog.service",
   "image/overlays/etc/systemd/system/autodarts-webpanel.service",
+  "image/overlays/etc/systemd/system/autodarts-kiosk.service",
   "image/overlays/usr/local/bin/autodarts-firstboot",
   "image/overlays/usr/local/bin/autodarts-runtime",
   "image/overlays/usr/local/bin/autodarts-watchdog",
   "image/overlays/usr/local/bin/autodarts-webpanel",
+  "image/overlays/usr/local/bin/autodarts-kiosk",
+  "image/overlays/usr/local/bin/autodarts-kiosk-session",
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.plymouth",
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.script",
   "image/overlays/etc/plymouth/plymouthd.conf",
   "image/overlays/usr/lib/sysusers.d/autodarts-pi-os.conf",
+  "image/overlays/usr/lib/tmpfiles.d/autodarts-pi-os.conf",
   "image/packages"
 )
 

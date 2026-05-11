@@ -7,6 +7,7 @@ Autodarts Pi OS ist ein Open-Source-Projekt für ein Raspberry-Pi-OS-Lite-basier
 Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares System:
 
 - eigener Boot-Screen mit Autodarts-Pi-OS-Splash
+- Kiosk-Ausgabe auf angeschlossenem Monitor mit `https://play.autodarts.io`
 - `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
 - lokale Konfiguration über einfache TOML-Dateien
 - Hardwareprofile für Raspberry Pi 4/5 mit USB-Kamera
@@ -73,6 +74,8 @@ mode = "webpanel"
 profile = "pi5-usb-camera"
 autodarts_command = "/usr/local/bin/autodarts-runtime"
 webpanel_port = 8080
+kiosk_enabled = true
+kiosk_url = "https://play.autodarts.io"
 ```
 
 ## Projektstruktur
@@ -94,6 +97,7 @@ webpanel/      Minimal local web panel implementation
 - Services: `image/overlays/etc/systemd/system/`
 - Runtime-Skripte: `image/overlays/usr/local/bin/`
 - Plymouth-Theme: `image/overlays/usr/share/plymouth/themes/autodarts-pi-os/`
+- Kiosk-Service: `image/overlays/etc/systemd/system/autodarts-kiosk.service`
 
 ## Rechtlicher Hinweis Zum Namen
 

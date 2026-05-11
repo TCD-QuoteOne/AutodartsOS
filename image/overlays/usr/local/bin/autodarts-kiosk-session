@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+URL="${1:-https://play.autodarts.io}"
+
+xset s off || true
+xset -dpms || true
+xset s noblank || true
+unclutter -idle 1 -root >/dev/null 2>&1 &
+openbox >/dev/null 2>&1 &
+
+BROWSER="$(command -v chromium-browser || command -v chromium || true)"
+if [[ -z "$BROWSER" ]]; then
+  echo "Chromium is not installed."
+  sleep infinity
+fi
+
+exec "$BROWSER" \
+  --kiosk "$URL" \
+  --no-first-run \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --disable-features=TranslateUI \
+  --autoplay-policy=no-user-gesture-required \
+  --start-maximized
+
