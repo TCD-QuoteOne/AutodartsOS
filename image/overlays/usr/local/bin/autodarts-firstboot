@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE_DIR="/var/lib/autodarts-pi-os"
+CONFIG_DIR="/etc/autodarts-pi-os"
+SEED_CONFIG="/boot/firmware/autodarts-config.toml"
+CONFIG_FILE="$CONFIG_DIR/config.toml"
+
+mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+
+if [[ -f "$SEED_CONFIG" ]]; then
+  cp "$SEED_CONFIG" "$CONFIG_FILE"
+fi
+
+HOSTNAME="$(awk -F '"' '/^hostname[[:space:]]*=/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true)"
+if [[ -n "$HOSTNAME" ]]; then
+  hostnamectl set-hostname "$HOSTNAME" || true
+fi
+
+touch "$STATE_DIR/firstboot.done"
+

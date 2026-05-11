@@ -1,0 +1,13 @@
+.DS_Store
+Thumbs.db
+*.log
+*.img
+*.zip
+*.xz
+build/
+dist/
+work/
+pi-gen/
+__pycache__/
+*.pyc
+

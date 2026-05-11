@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+while true; do
+  systemctl is-active --quiet autodarts-runtime.service || systemctl restart autodarts-runtime.service || true
+  sleep 30
+done
+

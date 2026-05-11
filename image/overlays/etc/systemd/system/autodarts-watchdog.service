@@ -1,0 +1,13 @@
+[Unit]
+Description=Autodarts Pi OS watchdog
+After=autodarts-runtime.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/autodarts-watchdog
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+

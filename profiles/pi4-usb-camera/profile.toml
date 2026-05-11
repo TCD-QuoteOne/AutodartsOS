@@ -1,0 +1,6 @@
+name = "pi4-usb-camera"
+board = "raspberry-pi-4"
+camera = "usb"
+display = "optional"
+notes = "Compatible fallback profile."
+

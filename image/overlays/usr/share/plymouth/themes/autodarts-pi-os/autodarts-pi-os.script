@@ -1,0 +1,26 @@
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+logo = Image("splash.png");
+logo_width = logo.GetWidth();
+logo_height = logo.GetHeight();
+
+max_width = screen_width * 0.72;
+max_height = screen_height * 0.72;
+scale = Math.Min(max_width / logo_width, max_height / logo_height);
+
+if (scale > 1) {
+  scale = 1;
+}
+
+logo = logo.Scale(logo_width * scale, logo_height * scale);
+logo_sprite = Sprite(logo);
+logo_sprite.SetX((screen_width - logo.GetWidth()) / 2);
+logo_sprite.SetY((screen_height - logo.GetHeight()) / 2);
+
+fun refresh_callback() {
+  logo_sprite.SetOpacity(1);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+

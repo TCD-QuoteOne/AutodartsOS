@@ -1,0 +1,16 @@
+[Unit]
+Description=Autodarts runtime
+After=network-online.target autodarts-firstboot.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/autodarts-pi-os
+ExecStart=/usr/local/bin/autodarts-runtime
+Restart=always
+RestartSec=5
+User=autodarts
+Group=autodarts
+
+[Install]
+WantedBy=multi-user.target

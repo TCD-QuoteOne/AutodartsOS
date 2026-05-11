@@ -1,0 +1,6 @@
+*.sh text eol=lf
+image/build.sh text eol=lf
+image/overlays/usr/local/bin/* text eol=lf
+*.service text eol=lf
+*.toml text eol=lf
+

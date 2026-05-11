@@ -1,0 +1,6 @@
+name = "pi5-usb-camera"
+board = "raspberry-pi-5"
+camera = "usb"
+display = "optional"
+notes = "Default development target."
+

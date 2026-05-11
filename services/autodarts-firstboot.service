@@ -1,0 +1,12 @@
+[Unit]
+Description=Autodarts Pi OS first boot setup
+After=local-fs.target
+ConditionPathExists=!/var/lib/autodarts-pi-os/firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/autodarts-firstboot
+
+[Install]
+WantedBy=multi-user.target
+

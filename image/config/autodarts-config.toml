@@ -1,0 +1,6 @@
+hostname = "autodarts-pi"
+mode = "webpanel"
+profile = "pi5-usb-camera"
+autodarts_command = "/usr/local/bin/autodarts-runtime"
+webpanel_port = 8080
+

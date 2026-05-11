@@ -1,0 +1,9 @@
+[Plymouth Theme]
+Name=Autodarts Pi OS
+Description=Autodarts Pi OS boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/autodarts-pi-os
+ScriptFile=/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.script
+

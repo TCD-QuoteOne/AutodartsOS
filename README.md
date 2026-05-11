@@ -1,0 +1,111 @@
+# Autodarts Pi OS
+
+![Autodarts Pi OS boot splash](assets/boot/autodarts-pi-os-splash.png)
+
+Autodarts Pi OS ist ein Open-Source-Projekt für ein Raspberry-Pi-OS-Lite-basiertes Appliance-Image, das ein Autodarts-Setup möglichst direkt nach dem Flashen startklar macht.
+
+Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares System:
+
+- eigener Boot-Screen mit Autodarts-Pi-OS-Splash
+- `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
+- lokale Konfiguration über einfache TOML-Dateien
+- Hardwareprofile für Raspberry Pi 4/5 mit USB-Kamera
+- Image-Overlay für `pi-gen`
+- Validierungsskripte für schnelle Smoke-Tests
+
+## Status
+
+Das Projekt ist aktuell eine erste, saubere Grundlage. Es enthält noch kein final gebautes Raspberry-Pi-Image und installiert noch nicht automatisch die eigentliche Autodarts-Anwendung. Der nächste technische Schritt ist ein echter `pi-gen`-Build unter Linux oder WSL.
+
+## Schnellstart Für Entwickler
+
+### 1. Repository prüfen
+
+Unter Windows/PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\validate.ps1
+```
+
+Unter Linux/WSL:
+
+```bash
+./tools/validate.sh
+```
+
+### 2. pi-gen vorbereiten
+
+`pi-gen` muss auf einem Linux-Host oder in WSL vorhanden sein:
+
+```bash
+git clone https://github.com/RPi-Distro/pi-gen.git
+export PI_GEN_DIR="$PWD/pi-gen"
+```
+
+### 3. Autodarts-Pi-OS-Stage erzeugen
+
+Im Autodarts-Pi-OS-Repository:
+
+```bash
+./image/build.sh
+```
+
+Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage-autodarts-pi-os` an und kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay.
+
+### 4. Image bauen
+
+Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. Die genaue `pi-gen`-Konfiguration wird im nächsten Projektschritt festgezurrt.
+
+## Geplanter Out-of-the-box-Ablauf
+
+1. Image auf microSD oder SSD flashen.
+2. Optional `autodarts-config.toml` auf die Boot-Partition legen.
+3. Raspberry Pi starten.
+4. First-Boot-Service übernimmt Hostname und Grundkonfiguration.
+5. Runtime-, Watchdog- und Webpanel-Service starten automatisch.
+6. Webpanel ist lokal auf Port `8080` erreichbar.
+
+Beispiel für eine spätere Boot-Seed-Konfiguration:
+
+```toml
+hostname = "autodarts-pi"
+mode = "webpanel"
+profile = "pi5-usb-camera"
+autodarts_command = "/usr/local/bin/autodarts-runtime"
+webpanel_port = 8080
+```
+
+## Projektstruktur
+
+```text
+assets/        Boot screen and visual assets
+docs/          Architecture, install, hardware, and development notes
+image/         pi-gen stage and root filesystem overlay
+profiles/     Hardware profile defaults
+services/     Source service unit files mirrored into image overlays
+tools/         Local helper and validation scripts
+webpanel/      Minimal local web panel implementation
+```
+
+## Wichtige Pfade
+
+- Boot-Splash: `assets/boot/autodarts-pi-os-splash.png`
+- Default-Konfiguration: `image/overlays/etc/autodarts-pi-os/config.toml`
+- Services: `image/overlays/etc/systemd/system/`
+- Runtime-Skripte: `image/overlays/usr/local/bin/`
+- Plymouth-Theme: `image/overlays/usr/share/plymouth/themes/autodarts-pi-os/`
+
+## Rechtlicher Hinweis Zum Namen
+
+`Autodarts Pi OS` ist als beschreibender Projektname für ein Raspberry-Pi-Image gedacht, das für Autodarts-Setups gebaut wird. Vor einer öffentlichen Release-Kommunikation sollte die Branding- oder Trademark-Situation mit dem Autodarts-Projekt geklärt werden. Bis dahin ist eine Formulierung wie „unofficial Raspberry Pi OS image for Autodarts“ am sichersten.
+
+## Lizenz
+
+Dieses Projekt steht unter der Apache-2.0-Lizenz. Siehe [LICENSE](LICENSE).
+
+## Weitere Dokumentation
+
+- [Architektur](docs/architecture.md)
+- [Installation](docs/install.md)
+- [Hardware](docs/hardware.md)
+- [Entwicklung](docs/development.md)

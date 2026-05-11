@@ -1,0 +1,14 @@
+[Unit]
+Description=Autodarts Pi OS local web panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/autodarts-webpanel
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
