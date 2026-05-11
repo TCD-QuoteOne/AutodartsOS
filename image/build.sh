@@ -28,24 +28,24 @@ cat > "$STAGE_DIR/00-install/00-run.sh" <<'SCRIPT'
 set -e
 install -d "${ROOTFS_DIR}/etc/systemd/system"
 install -m 0644 files/etc/systemd/system/*.service "${ROOTFS_DIR}/etc/systemd/system/"
+install -d "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants"
+ln -sf ../autodarts-firstboot.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-firstboot.service"
+ln -sf ../autodarts-runtime.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-runtime.service"
+ln -sf ../autodarts-watchdog.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-watchdog.service"
+ln -sf ../autodarts-webpanel.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-webpanel.service"
 install -d "${ROOTFS_DIR}/etc/autodarts-pi-os"
 install -m 0644 files/etc/autodarts-pi-os/config.toml "${ROOTFS_DIR}/etc/autodarts-pi-os/config.toml"
 install -d "${ROOTFS_DIR}/usr/local/bin"
 install -m 0755 files/usr/local/bin/* "${ROOTFS_DIR}/usr/local/bin/"
+install -d "${ROOTFS_DIR}/usr/lib/sysusers.d"
+install -m 0644 files/usr/lib/sysusers.d/autodarts-pi-os.conf "${ROOTFS_DIR}/usr/lib/sysusers.d/autodarts-pi-os.conf"
 install -d "${ROOTFS_DIR}/usr/share/autodarts-pi-os"
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/autodarts-pi-os/splash.png"
 install -d "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os"
 install -m 0644 files/usr/share/plymouth/themes/autodarts-pi-os/* "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/"
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/splash.png"
-install -d "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys" "${ROOTFS_DIR}/dev" "${ROOTFS_DIR}/run"
-on_chroot <<'CHROOT'
-id autodarts >/dev/null 2>&1 || useradd --system --create-home --groups video,input,render,gpio autodarts
-plymouth-set-default-theme autodarts-pi-os || true
-systemctl enable autodarts-firstboot.service
-systemctl enable autodarts-runtime.service
-systemctl enable autodarts-watchdog.service
-systemctl enable autodarts-webpanel.service
-CHROOT
+install -d "${ROOTFS_DIR}/etc/plymouth"
+install -m 0644 files/etc/plymouth/plymouthd.conf "${ROOTFS_DIR}/etc/plymouth/plymouthd.conf"
 SCRIPT
 
 chmod +x "$STAGE_DIR/00-install/00-run.sh"

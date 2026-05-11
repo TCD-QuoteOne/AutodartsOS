@@ -15,6 +15,8 @@ $required = @(
   "image/overlays/usr/local/bin/autodarts-webpanel",
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.plymouth",
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.script",
+  "image/overlays/etc/plymouth/plymouthd.conf",
+  "image/overlays/usr/lib/sysusers.d/autodarts-pi-os.conf",
   "image/packages"
 )
 
