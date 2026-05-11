@@ -37,6 +37,7 @@ install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/sh
 install -d "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os"
 install -m 0644 files/usr/share/plymouth/themes/autodarts-pi-os/* "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/"
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/splash.png"
+install -d "${ROOTFS_DIR}/proc" "${ROOTFS_DIR}/sys" "${ROOTFS_DIR}/dev" "${ROOTFS_DIR}/run"
 on_chroot <<'CHROOT'
 id autodarts >/dev/null 2>&1 || useradd --system --create-home --groups video,input,render,gpio autodarts
 plymouth-set-default-theme autodarts-pi-os || true
