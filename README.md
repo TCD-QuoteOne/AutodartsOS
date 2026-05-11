@@ -50,7 +50,7 @@ Im Autodarts-Pi-OS-Repository:
 ./image/build.sh
 ```
 
-Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage-autodarts-pi-os` an und kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay.
+Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage6-autodarts-pi-os` an und kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay.
 
 ### 4. Image bauen
 

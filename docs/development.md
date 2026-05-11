@@ -30,7 +30,7 @@ export PI_GEN_DIR=/path/to/pi-gen
 ./image/build.sh
 ```
 
-The script creates a custom stage named `stage-autodarts-pi-os` inside the `pi-gen` checkout and copies overlays from this repository. The actual image build is still delegated to `pi-gen`.
+The script creates a custom stage named `stage6-autodarts-pi-os` inside the `pi-gen` checkout and copies overlays from this repository. The actual image build is still delegated to `pi-gen`.
 
 ## Development Principles
 
@@ -39,4 +39,3 @@ The script creates a custom stage named `stage-autodarts-pi-os` inside the `pi-g
 - Prefer systemd services over shell startup hacks.
 - Keep user configuration in a small number of predictable files.
 - Make diagnostics visible through the local web panel.
-

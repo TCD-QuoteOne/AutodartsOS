@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PI_GEN_DIR="${PI_GEN_DIR:-}"
-STAGE_NAME="stage-autodarts-pi-os"
+STAGE_NAME="stage6-autodarts-pi-os"
 
 if [[ -z "$PI_GEN_DIR" ]]; then
   echo "PI_GEN_DIR must point to an existing pi-gen checkout." >&2
@@ -26,6 +26,7 @@ cp "$ROOT_DIR/image/packages" "$STAGE_DIR/00-packages"
 cat > "$STAGE_DIR/00-install/00-run.sh" <<'SCRIPT'
 #!/bin/bash
 set -e
+install -d "${ROOTFS_DIR}/etc/systemd/system"
 install -m 0644 files/etc/systemd/system/*.service "${ROOTFS_DIR}/etc/systemd/system/"
 install -d "${ROOTFS_DIR}/etc/autodarts-pi-os"
 install -m 0644 files/etc/autodarts-pi-os/config.toml "${ROOTFS_DIR}/etc/autodarts-pi-os/config.toml"
