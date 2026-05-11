@@ -10,10 +10,17 @@ command_from_config() {
 COMMAND="$(command_from_config)"
 
 if [[ -z "$COMMAND" || "$COMMAND" == "/usr/local/bin/autodarts-runtime" ]]; then
-  echo "Autodarts runtime command is not configured yet."
-  echo "Set autodarts_command in $CONFIG_FILE when the upstream runtime is installed."
+  if systemctl list-unit-files autodarts.service >/dev/null 2>&1; then
+    echo "Autodarts is managed by upstream autodarts.service."
+    systemctl start autodarts.service || true
+    sleep infinity
+  fi
+  if command -v autodarts >/dev/null 2>&1; then
+    exec autodarts
+  fi
+  echo "Autodarts runtime command is not configured yet and no autodarts binary/service was found."
+  echo "Set autodarts_command in $CONFIG_FILE or check /var/log/autodarts-install.log."
   sleep infinity
 fi
 
 exec $COMMAND
-

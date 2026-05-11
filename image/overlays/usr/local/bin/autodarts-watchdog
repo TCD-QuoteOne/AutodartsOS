@@ -2,7 +2,10 @@
 set -euo pipefail
 
 while true; do
-  systemctl is-active --quiet autodarts-runtime.service || systemctl restart autodarts-runtime.service || true
+  if systemctl list-unit-files autodarts.service >/dev/null 2>&1; then
+    systemctl is-active --quiet autodarts.service || systemctl restart autodarts.service || true
+  else
+    systemctl is-active --quiet autodarts-runtime.service || systemctl restart autodarts-runtime.service || true
+  fi
   sleep 30
 done
-

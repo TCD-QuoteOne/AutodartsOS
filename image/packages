@@ -1,5 +1,7 @@
 plymouth
 plymouth-themes
+curl
+ca-certificates
 xserver-xorg
 xinit
 openbox

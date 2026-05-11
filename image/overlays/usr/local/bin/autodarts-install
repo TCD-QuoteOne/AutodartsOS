@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
+STATE_DIR="/var/lib/autodarts-pi-os"
+MARKER="$STATE_DIR/autodarts-install.done"
+LOG_FILE="/var/log/autodarts-install.log"
+DEFAULT_INSTALLER_URL="https://get.autodarts.io"
+
+config_string() {
+  local key="$1"
+  awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+config_bool() {
+  local key="$1"
+  awk -F '=' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+mkdir -p "$STATE_DIR"
+touch "$LOG_FILE"
+
+if [[ "$(config_bool autodarts_install_enabled)" == "false" ]]; then
+  echo "Autodarts installation disabled by config." | tee -a "$LOG_FILE"
+  touch "$MARKER"
+  exit 0
+fi
+
+INSTALLER_URL="$(config_string autodarts_installer_url)"
+INSTALLER_URL="${INSTALLER_URL:-$DEFAULT_INSTALLER_URL}"
+VERSION="$(config_string autodarts_version)"
+VERSION="${VERSION:-latest}"
+HOST="$(printf '%s\n' "$INSTALLER_URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
+INSTALLER="/tmp/autodarts-installer.sh"
+
+while ! getent hosts "$HOST" >/dev/null 2>&1; do
+  echo "Waiting for DNS/network before installing Autodarts..." | tee -a "$LOG_FILE"
+  sleep 5
+done
+
+echo "Downloading Autodarts installer from $INSTALLER_URL" | tee -a "$LOG_FILE"
+curl --fail --location --silent --show-error --retry 10 --retry-delay 5 "$INSTALLER_URL" --output "$INSTALLER"
+chmod +x "$INSTALLER"
+
+if [[ "$VERSION" == "latest" ]]; then
+  echo "Installing latest Autodarts version." | tee -a "$LOG_FILE"
+  bash "$INSTALLER" 2>&1 | tee -a "$LOG_FILE"
+else
+  echo "Installing Autodarts version $VERSION." | tee -a "$LOG_FILE"
+  bash "$INSTALLER" "$VERSION" 2>&1 | tee -a "$LOG_FILE"
+fi
+
+touch "$MARKER"
+echo "Autodarts installation completed." | tee -a "$LOG_FILE"
+

@@ -8,6 +8,7 @@ Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares S
 
 - eigener Boot-Screen mit Autodarts-Pi-OS-Splash
 - Kiosk-Ausgabe auf angeschlossenem Monitor mit `https://play.autodarts.io`
+- automatische Autodarts-Installation beim ersten Boot über den offiziellen Installer
 - `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
 - lokale Konfiguration über einfache TOML-Dateien
 - Hardwareprofile für Raspberry Pi 4/5 mit USB-Kamera
@@ -73,6 +74,9 @@ hostname = "autodarts-pi"
 mode = "webpanel"
 profile = "pi5-usb-camera"
 autodarts_command = "/usr/local/bin/autodarts-runtime"
+autodarts_install_enabled = true
+autodarts_version = "latest"
+autodarts_installer_url = "https://get.autodarts.io"
 webpanel_port = 8080
 kiosk_enabled = true
 kiosk_url = "https://play.autodarts.io"
@@ -96,6 +100,7 @@ webpanel/      Minimal local web panel implementation
 - Default-Konfiguration: `image/overlays/etc/autodarts-pi-os/config.toml`
 - Services: `image/overlays/etc/systemd/system/`
 - Runtime-Skripte: `image/overlays/usr/local/bin/`
+- Autodarts-Installer: `image/overlays/usr/local/bin/autodarts-install`
 - Plymouth-Theme: `image/overlays/usr/share/plymouth/themes/autodarts-pi-os/`
 - Kiosk-Service: `image/overlays/etc/systemd/system/autodarts-kiosk.service`
 

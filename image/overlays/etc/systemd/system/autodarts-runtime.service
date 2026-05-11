@@ -1,6 +1,6 @@
 [Unit]
 Description=Autodarts runtime
-After=network-online.target autodarts-firstboot.service
+After=network-online.target autodarts-firstboot.service autodarts-install.service
 Wants=network-online.target
 
 [Service]

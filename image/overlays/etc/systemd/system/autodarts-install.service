@@ -1,0 +1,14 @@
+[Unit]
+Description=Install Autodarts on first boot
+After=network-online.target autodarts-firstboot.service
+Wants=network-online.target
+ConditionPathExists=!/var/lib/autodarts-pi-os/autodarts-install.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/autodarts-install
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target
+
