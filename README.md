@@ -67,9 +67,10 @@ Die Beispielkonfiguration setzt einen temporären Appliance-User:
 ```text
 FIRST_USER_NAME=autodarts
 FIRST_USER_PASS=autodarts
+DISABLE_FIRST_BOOT_USER_RENAME=1
 ```
 
-Der Nutzer ist nur fuer den ersten lokalen Start gedacht und soll spaeter im Setup-Hub ersetzt werden.
+Der Linux-Nutzer ist ein interner Appliance-User. Die eigentliche Einrichtung laeuft nicht ueber den Linux-Login, sondern ueber die lokale Weboberflaeche unter `http://autodarts-pi.local:8080` oder `http://<pi-ip>:8080`.
 
 Die Beispielkonfiguration begrenzt den Build auf:
 
@@ -104,6 +105,8 @@ autodarts_version = "latest"
 autodarts_installer_url = "https://get.autodarts.io"
 webpanel_port = 8080
 setup_mode = true
+setup_admin_user = "admin"
+setup_admin_password = "autodarts"
 setup_url = "http://localhost:8080/setup"
 kiosk_enabled = true
 play_url = "https://play.autodarts.io"

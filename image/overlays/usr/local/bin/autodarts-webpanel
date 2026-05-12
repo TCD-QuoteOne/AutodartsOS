@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from http import cookies
 import html
 import json
 import socket
 import subprocess
+from urllib.parse import parse_qs, urlparse
 
 CONFIG = Path("/etc/autodarts-pi-os/config.toml")
 SPLASH = Path("/usr/share/autodarts-pi-os/splash.png")
@@ -23,6 +25,31 @@ def read_config():
     return values
 
 
+def write_config(values):
+    lines = []
+    for key, value in values.items():
+        if isinstance(value, bool):
+            rendered = "true" if value else "false"
+        elif str(value).lower() in {"true", "false"}:
+            rendered = str(value).lower()
+        elif str(value).isdigit():
+            rendered = str(value)
+        else:
+            rendered = f'"{str(value)}"'
+        lines.append(f"{key} = {rendered}")
+    CONFIG.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def public_config(values):
+    redacted = {}
+    for key, value in values.items():
+        if "password" in key:
+            redacted[key] = "********" if value else ""
+        else:
+            redacted[key] = value
+    return redacted
+
+
 def service_state(name):
     try:
         result = subprocess.run(
@@ -37,10 +64,138 @@ def service_state(name):
         return f"unavailable: {exc}"
 
 
+def run_command(command):
+    try:
+        result = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            timeout=20,
+            check=False,
+        )
+        return result.returncode, result.stdout.strip(), result.stderr.strip()
+    except Exception as exc:
+        return 1, "", str(exc)
+
+
+def is_authenticated(handler):
+    config = read_config()
+    header = handler.headers.get("Cookie", "")
+    jar = cookies.SimpleCookie()
+    jar.load(header)
+    expected = config.get("setup_admin_password", "autodarts")
+    return jar.get("autodarts_setup") and jar["autodarts_setup"].value == expected
+
+
+def render_page(title, content):
+    return f"""<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(title)}</title>
+  <style>
+    body {{ margin: 0; font-family: system-ui, sans-serif; background: #101412; color: #eef7ef; }}
+    main {{ max-width: 1040px; margin: 0 auto; padding: 32px 20px; }}
+    header {{ display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }}
+    img {{ width: 82px; height: 82px; object-fit: contain; }}
+    h1 {{ margin: 0; font-size: 32px; }}
+    h2 {{ margin-top: 28px; }}
+    p {{ color: #b8c7bb; line-height: 1.5; }}
+    form, .panel {{ background: #171d1a; border: 1px solid #2b3830; padding: 18px; margin-top: 16px; }}
+    label {{ display: block; color: #9ee26d; font-weight: 700; margin-top: 12px; }}
+    input {{ box-sizing: border-box; width: 100%; padding: 11px; margin-top: 6px; background: #0d110f; color: #eef7ef; border: 1px solid #3a473f; }}
+    button, a.button {{ display: inline-block; margin-top: 16px; margin-right: 10px; padding: 10px 14px; border: 0; background: #9ee26d; color: #101412; text-decoration: none; font-weight: 800; cursor: pointer; }}
+    table {{ width: 100%; border-collapse: collapse; background: #171d1a; border: 1px solid #2b3830; }}
+    th, td {{ text-align: left; padding: 11px 13px; border-bottom: 1px solid #2b3830; }}
+    th {{ width: 220px; color: #9ee26d; }}
+    .muted {{ color: #b8c7bb; }}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="/splash.png" alt="">
+      <div>
+        <h1>{html.escape(title)}</h1>
+        <p>{html.escape(socket.gethostname())}</p>
+      </div>
+    </header>
+    {content}
+  </main>
+</body>
+</html>"""
+
+
+def redirect(handler, target):
+    handler.send_response(303)
+    handler.send_header("Location", target)
+    handler.end_headers()
+
+
 class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        data = parse_qs(self.rfile.read(length).decode("utf-8"))
         config = read_config()
-        if self.path == "/splash.png":
+
+        if self.path == "/login":
+            password = data.get("password", [""])[0]
+            if password == config.get("setup_admin_password", "autodarts"):
+                self.send_response(303)
+                self.send_header("Location", "/setup")
+                self.send_header("Set-Cookie", f"autodarts_setup={password}; Path=/; HttpOnly; SameSite=Lax")
+                self.end_headers()
+                return
+            redirect(self, "/setup?login=failed")
+            return
+
+        if self.path == "/setup/save":
+            if not is_authenticated(self):
+                redirect(self, "/setup")
+                return
+            hostname = data.get("hostname", [""])[0].strip()
+            admin_password = data.get("setup_admin_password", [""])[0].strip()
+            wifi_ssid = data.get("wifi_ssid", [""])[0].strip()
+            wifi_password = data.get("wifi_password", [""])[0]
+            wifi_country = data.get("wifi_country", ["DE"])[0].strip().upper()[:2] or "DE"
+            if hostname:
+                config["hostname"] = hostname
+                run_command(["hostnamectl", "set-hostname", hostname])
+            if admin_password:
+                config["setup_admin_password"] = admin_password
+            if wifi_ssid:
+                config["wifi_ssid"] = wifi_ssid
+                config["wifi_country"] = wifi_country
+                run_command(["nmcli", "radio", "wifi", "on"])
+                command = ["nmcli", "dev", "wifi", "connect", wifi_ssid]
+                if wifi_password:
+                    command.extend(["password", wifi_password])
+                run_command(command)
+            write_config(config)
+            redirect(self, "/setup?saved=1")
+            return
+
+        if self.path == "/setup/finish":
+            if not is_authenticated(self):
+                redirect(self, "/setup")
+                return
+            config["setup_mode"] = "false"
+            write_config(config)
+            redirect(self, config.get("play_url", "https://play.autodarts.io"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+        config = read_config()
+        if path == "/":
+            redirect(self, "/setup")
+            return
+
+        if path == "/splash.png":
             if SPLASH.exists():
                 payload = SPLASH.read_bytes()
                 self.send_response(200)
@@ -53,10 +208,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
             return
 
-        if self.path == "/health.json":
+        if path == "/health.json":
             payload = {
                 "hostname": socket.gethostname(),
-                "config": config,
+                "config": public_config(config),
                 "services": {
                     "runtime": service_state("autodarts-runtime.service"),
                     "watchdog": service_state("autodarts-watchdog.service"),
@@ -71,41 +226,52 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
-        if self.path == "/setup":
-            config_rows = "".join(
-                f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>"
-                for key, value in config.items()
-            )
-            payload = f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Autodarts Pi OS Setup</title>
-  <style>
-    body {{ margin: 0; font-family: system-ui, sans-serif; background: #101412; color: #eef7ef; }}
-    main {{ max-width: 960px; margin: 0 auto; padding: 32px 20px; }}
-    h1 {{ margin: 0 0 12px; font-size: 32px; }}
-    p {{ color: #b8c7bb; line-height: 1.5; }}
-    section {{ margin-top: 24px; }}
-    table {{ width: 100%; border-collapse: collapse; background: #171d1a; border: 1px solid #2b3830; }}
-    th, td {{ text-align: left; padding: 12px 14px; border-bottom: 1px solid #2b3830; }}
-    th {{ width: 220px; color: #9ee26d; }}
-    a.button {{ display: inline-block; margin-right: 12px; margin-top: 8px; padding: 10px 14px; background: #9ee26d; color: #101412; text-decoration: none; font-weight: 700; }}
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Autodarts Pi OS Setup</h1>
-    <p>Dieser Setup-Hub ist der Startpunkt fuer WLAN, Benutzer, Kamera-Check und Autodarts-Einrichtung. Die interaktiven Formulare werden in den naechsten Schritten hier ergaenzt.</p>
-    <section>
-      <a class="button" href="/health.json">Systemstatus</a>
-      <a class="button" href="https://play.autodarts.io">Autodarts Play</a>
-    </section>
-    <section><h2>Aktuelle Konfiguration</h2><table>{config_rows}</table></section>
-  </main>
-</body>
-</html>""".encode("utf-8")
+        if path == "/setup":
+            if not is_authenticated(self):
+                body = render_page(
+                    "Autodarts Pi OS Login",
+                    """<div class="panel"><p>Bitte melde dich am lokalen Setup an. Standard beim ersten Start: Passwort <strong>autodarts</strong>.</p></div>
+<form method="post" action="/login">
+  <label for="password">Setup-Passwort</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" autofocus>
+  <button type="submit">Einloggen</button>
+</form>""",
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            config_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in public_config(config).items())
+            content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort, Hostname und WLAN, danach Kamera- und Autodarts-Einrichtung.</p>
+<form method="post" action="/setup/save">
+  <h2>System</h2>
+  <label for="hostname">Hostname</label>
+  <input id="hostname" name="hostname" value="{html.escape(config.get("hostname", "autodarts-pi"))}">
+  <label for="setup_admin_password">Neues Setup-Passwort</label>
+  <input id="setup_admin_password" name="setup_admin_password" type="password" placeholder="leer lassen, wenn unveraendert">
+  <h2>WLAN</h2>
+  <label for="wifi_ssid">WLAN-Name</label>
+  <input id="wifi_ssid" name="wifi_ssid" value="{html.escape(config.get("wifi_ssid", ""))}">
+  <label for="wifi_password">WLAN-Passwort</label>
+  <input id="wifi_password" name="wifi_password" type="password">
+  <label for="wifi_country">Land</label>
+  <input id="wifi_country" name="wifi_country" value="{html.escape(config.get("wifi_country", "DE"))}">
+  <button type="submit">Speichern</button>
+</form>
+<form method="post" action="/setup/finish">
+  <h2>Setup abschliessen</h2>
+  <p class="muted">Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
+  <button type="submit">Setup abschliessen</button>
+</form>
+<section>
+  <a class="button" href="/health.json">Systemstatus</a>
+  <a class="button" href="https://play.autodarts.io">Autodarts Play</a>
+</section>
+<section><h2>Aktuelle Konfiguration</h2><table>{config_rows}</table></section>"""
+            payload = render_page("Autodarts Pi OS Setup", content).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
@@ -124,7 +290,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         config_rows = "".join(
             f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>"
-            for key, value in config.items()
+            for key, value in public_config(config).items()
         )
         body = f"""<!doctype html>
 <html lang="en">
