@@ -37,6 +37,8 @@ else
   fi
 fi
 echo "autodarts:autodarts" | chpasswd
+install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.bash_profile
+chown autodarts:autodarts /home/autodarts/.bash_profile || true
 
 HOSTNAME="$(awk -F '"' '/^hostname[[:space:]]*=/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true)"
 if [[ -n "$HOSTNAME" ]]; then

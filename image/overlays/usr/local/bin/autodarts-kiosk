@@ -39,4 +39,4 @@ if [[ -n "${DISPLAY:-}" ]]; then
   exec /usr/local/bin/autodarts-kiosk-session "$URL"
 fi
 
-exec xinit /usr/local/bin/autodarts-kiosk-session "$URL" -- :0 -nolisten tcp vt7
+exec startx /usr/local/bin/autodarts-kiosk-session "$URL" -- :0 -nolisten tcp

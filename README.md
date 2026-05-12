@@ -10,6 +10,7 @@ Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares S
 - Kiosk-Ausgabe auf angeschlossenem Monitor mit `https://play.autodarts.io`
 - automatische Autodarts-Installation beim ersten Boot über den offiziellen Installer
 - lokaler Setup-Hub beim ersten Start statt Raspberry-Pi-OS-Userdialog
+- Konsolen-Autologin auf `tty1`, das den Kiosk im Lite-Image startet
 - `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
 - lokale Konfiguration über einfache TOML-Dateien
 - Hardwareprofile für Raspberry Pi 4/5 mit USB-Kamera

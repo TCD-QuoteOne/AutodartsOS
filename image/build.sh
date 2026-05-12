@@ -62,9 +62,11 @@ ln -sf ../autodarts-install.service "${ROOTFS_DIR}/etc/systemd/system/multi-user
 ln -sf ../autodarts-runtime.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-runtime.service"
 ln -sf ../autodarts-watchdog.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-watchdog.service"
 ln -sf ../autodarts-webpanel.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-webpanel.service"
-ln -sf ../autodarts-kiosk.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-kiosk.service"
 install -d "${ROOTFS_DIR}/etc/autodarts-pi-os"
 install -m 0644 files/etc/autodarts-pi-os/config.toml "${ROOTFS_DIR}/etc/autodarts-pi-os/config.toml"
+install -m 0644 files/etc/autodarts-pi-os/bash_profile "${ROOTFS_DIR}/etc/autodarts-pi-os/bash_profile"
+install -d "${ROOTFS_DIR}/etc/systemd/system/getty@tty1.service.d"
+install -m 0644 files/etc/systemd/system/getty@tty1.service.d/autodarts-autologin.conf "${ROOTFS_DIR}/etc/systemd/system/getty@tty1.service.d/autodarts-autologin.conf"
 install -d "${ROOTFS_DIR}/usr/local/bin"
 install -m 0755 files/usr/local/bin/* "${ROOTFS_DIR}/usr/local/bin/"
 install -d "${ROOTFS_DIR}/usr/lib/sysusers.d"
@@ -80,6 +82,9 @@ install -d "${ROOTFS_DIR}/etc/plymouth"
 install -m 0644 files/etc/plymouth/plymouthd.conf "${ROOTFS_DIR}/etc/plymouth/plymouthd.conf"
 install -d "${ROOTFS_DIR}/etc/lightdm/lightdm.conf.d"
 install -m 0644 files/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf "${ROOTFS_DIR}/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf"
+install -d "${ROOTFS_DIR}/home/autodarts"
+install -m 0644 files/etc/autodarts-pi-os/bash_profile "${ROOTFS_DIR}/home/autodarts/.bash_profile"
+chown 1000:1000 "${ROOTFS_DIR}/home/autodarts" "${ROOTFS_DIR}/home/autodarts/.bash_profile" || true
 rm -f "${ROOTFS_DIR}/etc/xdg/autostart/piwiz.desktop"
 SCRIPT
 
