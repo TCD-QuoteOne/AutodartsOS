@@ -30,7 +30,7 @@ export PI_GEN_DIR=/path/to/pi-gen
 ./image/build.sh
 ```
 
-The script creates a custom stage named `stage6-autodarts-pi-os` inside the `pi-gen` checkout and copies overlays from this repository. The actual image build is still delegated to `pi-gen`.
+The script creates a custom stage named `stage2-autodarts-pi-os` inside the `pi-gen` checkout and copies overlays from this repository. It also configures `pi-gen` to skip the stock stage2 image export plus the desktop/full stages so only the Autodarts Pi OS Lite appliance image is exported. The actual image build is still delegated to `pi-gen`.
 
 ## Development Principles
 

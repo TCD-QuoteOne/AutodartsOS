@@ -1,6 +1,7 @@
 IMG_NAME=AutodartsPiOS
 RELEASE=bookworm
 DEPLOY_ZIP=1
+STAGE_LIST="stage0 stage1 stage2 stage2-autodarts-pi-os"
 LOCALE_DEFAULT=de_DE.UTF-8
 KEYBOARD_KEYMAP=de
 KEYBOARD_LAYOUT=German

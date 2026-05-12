@@ -53,7 +53,7 @@ Im Autodarts-Pi-OS-Repository:
 ./image/build.sh
 ```
 
-Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage6-autodarts-pi-os` an und kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay.
+Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage2-autodarts-pi-os` an. Sie baut direkt auf Raspberry Pi OS Lite auf, kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay und exportiert nur das Autodarts-Pi-OS-Lite-Appliance-Image.
 
 ### 4. pi-gen konfigurieren
 
@@ -69,6 +69,14 @@ FIRST_USER_PASS=autodarts
 ```
 
 Der Nutzer ist nur fuer den ersten lokalen Start gedacht und soll spaeter im Setup-Hub ersetzt werden.
+
+Die Beispielkonfiguration begrenzt den Build auf:
+
+```text
+STAGE_LIST="stage0 stage1 stage2 stage2-autodarts-pi-os"
+```
+
+Dadurch werden keine normalen Desktop- oder Full-Images erzeugt.
 
 ### 5. Image bauen
 
