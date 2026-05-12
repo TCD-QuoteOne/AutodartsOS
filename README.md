@@ -9,6 +9,7 @@ Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares S
 - eigener Boot-Screen mit Autodarts-Pi-OS-Splash
 - Kiosk-Ausgabe auf angeschlossenem Monitor mit `https://play.autodarts.io`
 - automatische Autodarts-Installation beim ersten Boot über den offiziellen Installer
+- lokaler Setup-Hub beim ersten Start statt Raspberry-Pi-OS-Userdialog
 - `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
 - lokale Konfiguration über einfache TOML-Dateien
 - Hardwareprofile für Raspberry Pi 4/5 mit USB-Kamera
@@ -54,7 +55,22 @@ Im Autodarts-Pi-OS-Repository:
 
 Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage6-autodarts-pi-os` an und kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay.
 
-### 4. Image bauen
+### 4. pi-gen konfigurieren
+
+```bash
+cp /opt/AutodartsOS/image/pi-gen-config.example /opt/pi-gen/config
+```
+
+Die Beispielkonfiguration setzt einen temporären Appliance-User:
+
+```text
+FIRST_USER_NAME=autodarts
+FIRST_USER_PASS=autodarts
+```
+
+Der Nutzer ist nur fuer den ersten lokalen Start gedacht und soll spaeter im Setup-Hub ersetzt werden.
+
+### 5. Image bauen
 
 Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. Die genaue `pi-gen`-Konfiguration wird im nächsten Projektschritt festgezurrt.
 
@@ -78,7 +94,10 @@ autodarts_install_enabled = true
 autodarts_version = "latest"
 autodarts_installer_url = "https://get.autodarts.io"
 webpanel_port = 8080
+setup_mode = true
+setup_url = "http://localhost:8080/setup"
 kiosk_enabled = true
+play_url = "https://play.autodarts.io"
 kiosk_url = "https://play.autodarts.io"
 ```
 

@@ -50,6 +50,9 @@ install -m 0644 files/usr/share/plymouth/themes/autodarts-pi-os/* "${ROOTFS_DIR}
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/splash.png"
 install -d "${ROOTFS_DIR}/etc/plymouth"
 install -m 0644 files/etc/plymouth/plymouthd.conf "${ROOTFS_DIR}/etc/plymouth/plymouthd.conf"
+install -d "${ROOTFS_DIR}/etc/lightdm/lightdm.conf.d"
+install -m 0644 files/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf "${ROOTFS_DIR}/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf"
+rm -f "${ROOTFS_DIR}/etc/xdg/autostart/piwiz.desktop"
 SCRIPT
 
 chmod +x "$STAGE_DIR/00-install/00-run.sh"

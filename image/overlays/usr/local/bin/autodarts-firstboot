@@ -12,10 +12,35 @@ if [[ -f "$SEED_CONFIG" ]]; then
   cp "$SEED_CONFIG" "$CONFIG_FILE"
 fi
 
+existing_groups() {
+  local groups=()
+  local group
+  for group in video input render gpio netdev; do
+    if getent group "$group" >/dev/null 2>&1; then
+      groups+=("$group")
+    fi
+  done
+  (IFS=,; echo "${groups[*]}")
+}
+
+GROUPS="$(existing_groups)"
+if ! id autodarts >/dev/null 2>&1; then
+  if [[ -n "$GROUPS" ]]; then
+    useradd -m -s /bin/bash -G "$GROUPS" autodarts
+  else
+    useradd -m -s /bin/bash autodarts
+  fi
+else
+  chsh -s /bin/bash autodarts || true
+  if [[ -n "$GROUPS" ]]; then
+    usermod -aG "$GROUPS" autodarts || true
+  fi
+fi
+echo "autodarts:autodarts" | chpasswd
+
 HOSTNAME="$(awk -F '"' '/^hostname[[:space:]]*=/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true)"
 if [[ -n "$HOSTNAME" ]]; then
   hostnamectl set-hostname "$HOSTNAME" || true
 fi
 
 touch "$STATE_DIR/firstboot.done"
-

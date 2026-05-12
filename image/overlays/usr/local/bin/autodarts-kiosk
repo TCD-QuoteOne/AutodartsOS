@@ -21,12 +21,16 @@ fi
 
 URL="$(config_value kiosk_url)"
 URL="${URL:-$DEFAULT_URL}"
+if [[ "$(config_bool setup_mode)" != "false" ]]; then
+  URL="$(config_value setup_url)"
+  URL="${URL:-http://localhost:8080/setup}"
+fi
 HOST="$(printf '%s\n' "$URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
 
 mkdir -p "$HOME/.config/autodarts-pi-os" "$HOME/.config/chromium" "${XDG_RUNTIME_DIR:-/tmp/runtime-autodarts}"
 chmod 700 "${XDG_RUNTIME_DIR:-/tmp/runtime-autodarts}" || true
 
-while ! getent hosts "$HOST" >/dev/null 2>&1; do
+while [[ "$HOST" != "localhost" && "$HOST" != "127.0.0.1" ]] && ! getent hosts "$HOST" >/dev/null 2>&1; do
   echo "Waiting for DNS/network before starting kiosk..."
   sleep 3
 done

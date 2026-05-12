@@ -22,9 +22,11 @@ required=(
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.plymouth"
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.script"
   "image/overlays/etc/plymouth/plymouthd.conf"
+  "image/overlays/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf"
   "image/overlays/usr/lib/sysusers.d/autodarts-pi-os.conf"
   "image/overlays/usr/lib/tmpfiles.d/autodarts-pi-os.conf"
   "image/packages"
+  "image/pi-gen-config.example"
 )
 
 for path in "${required[@]}"; do
