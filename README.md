@@ -91,8 +91,70 @@ Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. 
 2. Optional `autodarts-config.toml` auf die Boot-Partition legen.
 3. Raspberry Pi starten.
 4. First-Boot-Service übernimmt Hostname und Grundkonfiguration.
-5. Runtime-, Watchdog- und Webpanel-Service starten automatisch.
-6. Webpanel ist lokal auf Port `8080` erreichbar.
+5. Runtime-, Watchdog-, Network- und Webpanel-Service starten automatisch.
+6. Wenn kein Ethernet und kein funktionierendes WLAN verbunden ist, startet der Setup-Hotspot.
+
+## Setup-Ablauf Für Nutzer
+
+### Variante A: Einrichtung per Handy oder Laptop über Setup-Hotspot
+
+Wenn der Raspberry Pi noch kein Netzwerk hat, öffnet Autodarts Pi OS automatisch ein eigenes WLAN:
+
+```text
+WLAN-Name: Autodarts-Setup
+Passwort: autodarts
+```
+
+Danach:
+
+1. Am Handy oder Laptop mit `Autodarts-Setup` verbinden.
+2. Browser öffnen.
+3. Diese Adresse aufrufen:
+
+```text
+http://auto.setup.go
+```
+
+4. Mit dem Setup-Passwort einloggen:
+
+```text
+autodarts
+```
+
+5. Hostname, neues Setup-Passwort und optional WLAN-Daten eintragen.
+6. Speichern.
+7. Wenn das WLAN erfolgreich verbunden wurde, schaltet sich der Setup-Hotspot automatisch ab.
+8. Wenn das WLAN-Passwort falsch ist oder keine Verbindung zustande kommt, bleibt das System im Setup-Modus und der Hotspot `Autodarts-Setup` kommt wieder.
+9. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschließen` gedrückt werden.
+10. Danach startet der Kiosk auf Autodarts Play.
+
+### Variante B: Einrichtung per Netzwerkkabel
+
+Wenn ein LAN-Kabel angeschlossen ist, bekommt der Pi normalerweise automatisch eine IP-Adresse per DHCP.
+
+Dann im Browser aufrufen:
+
+```text
+http://autodarts-pi.local
+```
+
+Falls `.local` im Netzwerk nicht auflöst, die IP aus dem Router verwenden:
+
+```text
+http://<pi-ip>
+```
+
+WLAN kann in diesem Fall leer bleiben. Das Setup kann über Ethernet abgeschlossen werden.
+
+### Variante C: Einrichtung direkt am Monitor
+
+Wenn Monitor und Tastatur angeschlossen sind, startet der Pi lokal in den Setup-Kiosk:
+
+```text
+http://localhost/setup
+```
+
+Das ist hilfreich, wenn weder Handy-Hotspot-Setup noch Ethernet verfügbar sind.
 
 Beispiel für eine spätere Boot-Seed-Konfiguration:
 
