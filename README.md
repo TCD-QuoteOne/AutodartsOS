@@ -123,10 +123,11 @@ autodarts
 
 5. Hostname, neues Setup-Passwort und optional WLAN-Daten eintragen.
 6. Speichern.
-7. Wenn das WLAN erfolgreich verbunden wurde, schaltet sich der Setup-Hotspot automatisch ab.
-8. Wenn das WLAN-Passwort falsch ist oder keine Verbindung zustande kommt, bleibt das System im Setup-Modus und der Hotspot `Autodarts-Setup` kommt wieder.
-9. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschließen` gedrückt werden.
-10. Danach startet der Kiosk auf Autodarts Play.
+7. Danach wird die Verbindung zur Setup-Seite eventuell kurz getrennt. Das ist normal: Der Pi schaltet den Setup-Hotspot kurz aus und testet das eingetragene Heim-WLAN.
+8. Wenn das WLAN erfolgreich verbunden wurde, bleibt der Setup-Hotspot aus. Verbinde dein Handy oder deinen Laptop dann mit demselben Heim-WLAN und öffne `http://autodarts-pi.local` oder die IP-Adresse des Pi.
+9. Wenn WLAN-Name oder Passwort falsch sind oder keine Verbindung zustande kommt, startet der Hotspot `Autodarts-Setup` automatisch wieder. Verbinde dich erneut damit, öffne `http://auto.setup.go` und korrigiere die Daten.
+10. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschließen` gedrückt werden.
+11. Danach startet der Kiosk auf Autodarts Play.
 
 Nach einem erfolgreichen Setup merkt sich Autodarts Pi OS den Zustand `configured`. Ein späterer Internet- oder WLAN-Ausfall startet den Setup-Hotspot dann nicht automatisch erneut.
 

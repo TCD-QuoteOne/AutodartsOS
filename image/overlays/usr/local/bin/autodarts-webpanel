@@ -14,6 +14,7 @@ DEFAULT_CONFIG = Path("/usr/share/autodarts-pi-os/default-config.toml")
 SPLASH = Path("/usr/share/autodarts-pi-os/splash.png")
 STATUS_FILE = Path("/var/lib/autodarts-pi-os/setup-status.json")
 SETUP_STATE = Path("/var/lib/autodarts-pi-os/setup.state")
+WIFI_APPLY_REQUEST = Path("/var/lib/autodarts-pi-os/wifi-apply.request")
 KIOSK_LOG = Path("/var/log/autodarts-kiosk.log")
 NETWORK_LOG = Path("/var/log/autodarts-network.log")
 INSTALL_LOG = Path("/var/log/autodarts-install.log")
@@ -264,26 +265,21 @@ class Handler(BaseHTTPRequestHandler):
                 reset_session_token()
             if wifi_ssid:
                 config["wifi_ssid"] = wifi_ssid
+                config["wifi_password"] = wifi_password
                 config["wifi_country"] = wifi_country
+                write_config(config)
                 setup_status = read_status()
-                setup_status["wifi"] = {"state": "running", "message": "WLAN-Verbindung wird eingerichtet."}
-                write_status(setup_status)
-                run_command(["rfkill", "unblock", "wifi"])
-                run_command(["nmcli", "radio", "wifi", "on"])
-                run_command(["nmcli", "device", "wifi", "rescan"])
-                command = ["nmcli", "--wait", "60", "dev", "wifi", "connect", wifi_ssid]
-                if wifi_password:
-                    command.extend(["password", wifi_password])
-                code, stdout, stderr = run_command(command)
                 setup_status["wifi"] = {
-                    "state": "ok" if code == 0 else "failed",
-                    "returncode": code,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                    "status": wifi_status(),
+                    "state": "pending",
+                    "message": (
+                        "WLAN-Daten gespeichert. Der Setup-Hotspot wird kurz deaktiviert, "
+                        "die Verbindung wird getestet und bei Fehler automatisch wieder gestartet."
+                    ),
+                    "ssid": wifi_ssid,
                 }
                 write_status(setup_status)
-                config["setup_mode"] = "true" if code != 0 else config.get("setup_mode", "true")
+                WIFI_APPLY_REQUEST.parent.mkdir(parents=True, exist_ok=True)
+                WIFI_APPLY_REQUEST.write_text("pending\n", encoding="utf-8")
             else:
                 setup_status = read_status()
                 setup_status["wifi"] = {"state": "skipped", "message": "WLAN wurde uebersprungen."}
@@ -497,9 +493,13 @@ class Handler(BaseHTTPRequestHandler):
             wifi_panel = ""
             if wifi:
                 state = html.escape(str(wifi.get("state", "")))
+                message = html.escape(str(wifi.get("message", "")))
                 stdout = html.escape(str(wifi.get("stdout", "")))
                 stderr = html.escape(str(wifi.get("stderr", "")))
-                wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><p>Status: <strong>{state}</strong></p><pre>{stdout}</pre><pre>{stderr}</pre></section>"""
+                reconnect_note = ""
+                if str(wifi.get("state", "")) in {"pending", "running"}:
+                    reconnect_note = """<p class="muted">Die Verbindung zu dieser Setup-Seite kann gleich abbrechen. Warte etwa eine Minute. Wenn die WLAN-Daten stimmen, verbinde dein Handy mit deinem Heim-WLAN und oeffne <strong>http://autodarts-pi.local</strong>. Wenn sie nicht stimmen, erscheint der Hotspot <strong>Autodarts-Setup</strong> wieder.</p>"""
+                wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><p>Status: <strong>{state}</strong></p><p>{message}</p>{reconnect_note}<pre>{stdout}</pre><pre>{stderr}</pre></section>"""
             else:
                 current_wifi = wifi_status()
                 wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><pre>{html.escape(current_wifi.get("stdout", ""))}</pre><pre>{html.escape(current_wifi.get("stderr", ""))}</pre></section>"""

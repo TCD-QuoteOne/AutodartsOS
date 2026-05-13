@@ -5,6 +5,8 @@ CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
 LOG_FILE="/var/log/autodarts-network.log"
 HOTSPOT_NAME="Autodarts-Setup"
 SETUP_STATE_FILE="/var/lib/autodarts-pi-os/setup.state"
+STATUS_FILE="/var/lib/autodarts-pi-os/setup-status.json"
+WIFI_APPLY_REQUEST="/var/lib/autodarts-pi-os/wifi-apply.request"
 
 exec >>"$LOG_FILE" 2>&1
 
@@ -25,6 +27,13 @@ wifi_device() {
 connected_network() {
   nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status | awk -F ':' '
     $3 == "connected" && $4 != "Autodarts-Setup" && ($2 == "ethernet" || $2 == "wifi") { found=1 }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+connected_wifi() {
+  nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status | awk -F ':' '
+    $3 == "connected" && $4 != "Autodarts-Setup" && $2 == "wifi" { found=1 }
     END { exit found ? 0 : 1 }
   '
 }
@@ -87,11 +96,99 @@ ensure_hotspot() {
   fi
 }
 
+json_string() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g' | tr '\n' ' '
+}
+
+write_wifi_status() {
+  local state="$1"
+  local message="$2"
+  local ssid="${3:-}"
+  local stdout="${4:-}"
+  local stderr="${5:-}"
+
+  mkdir -p "$(dirname "$STATUS_FILE")"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "wifi": {
+    "state": "$(json_string "$state")",
+    "message": "$(json_string "$message")",
+    "ssid": "$(json_string "$ssid")",
+    "stdout": "$(json_string "$stdout")",
+    "stderr": "$(json_string "$stderr")"
+  }
+}
+EOF
+}
+
+apply_pending_wifi() {
+  local device ssid password country tmp_stdout tmp_stderr code
+
+  [[ -f "$WIFI_APPLY_REQUEST" ]] || return 1
+
+  ssid="$(config_string wifi_ssid)"
+  password="$(config_string wifi_password)"
+  country="$(config_string wifi_country)"
+  country="${country:-DE}"
+
+  if [[ -z "$ssid" ]]; then
+    echo "$(date -Is) WiFi apply requested without SSID"
+    rm -f "$WIFI_APPLY_REQUEST"
+    write_wifi_status "failed" "Es wurde kein WLAN-Name gespeichert."
+    return 0
+  fi
+
+  device="$(wifi_device)"
+  if [[ -z "$device" ]]; then
+    echo "$(date -Is) WiFi apply requested, but no WiFi device exists"
+    rm -f "$WIFI_APPLY_REQUEST"
+    write_wifi_status "failed" "Es wurde kein WLAN-Geraet gefunden." "$ssid"
+    return 0
+  fi
+
+  echo "$(date -Is) applying pending WiFi credentials for SSID '$ssid'"
+  write_wifi_status "running" "Der Setup-Hotspot wird kurz deaktiviert und das WLAN wird getestet." "$ssid"
+  stop_hotspot
+  sleep 3
+  rfkill unblock wifi || true
+  nmcli radio wifi on || true
+  nmcli general hostname "$(config_string hostname || true)" >/dev/null 2>&1 || true
+  iw reg set "$country" >/dev/null 2>&1 || true
+  nmcli device wifi rescan ifname "$device" >/dev/null 2>&1 || nmcli device wifi rescan >/dev/null 2>&1 || true
+  sleep 3
+
+  tmp_stdout="$(mktemp)"
+  tmp_stderr="$(mktemp)"
+  set +e
+  if [[ -n "$password" ]]; then
+    nmcli --wait 75 dev wifi connect "$ssid" password "$password" ifname "$device" >"$tmp_stdout" 2>"$tmp_stderr"
+  else
+    nmcli --wait 75 dev wifi connect "$ssid" ifname "$device" >"$tmp_stdout" 2>"$tmp_stderr"
+  fi
+  code=$?
+  set -e
+
+  if [[ "$code" -eq 0 ]]; then
+    echo "$(date -Is) WiFi connected to '$ssid'"
+    write_wifi_status "ok" "WLAN wurde verbunden. Verbinde dein Handy jetzt mit demselben Netzwerk und oeffne http://autodarts-pi.local oder die IP-Adresse des Pi." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
+  else
+    echo "$(date -Is) WiFi connection failed for '$ssid' with code $code"
+    write_wifi_status "failed" "WLAN konnte nicht verbunden werden. Pruefe WLAN-Name und Passwort. Der Setup-Hotspot wird wieder gestartet." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
+  fi
+
+  rm -f "$tmp_stdout" "$tmp_stderr" "$WIFI_APPLY_REQUEST"
+  return 0
+}
+
 while true; do
   state="$(setup_state)"
+  apply_pending_wifi || true
+
   if [[ "$(config_bool setup_hotspot_enabled)" == "false" ]]; then
     stop_hotspot
   elif [[ "$state" == "configured" ]]; then
+    stop_hotspot
+  elif connected_wifi; then
     stop_hotspot
   elif [[ "$state" == "factory" || "$state" == "recovery" ]]; then
     ensure_hotspot
