@@ -4,6 +4,7 @@ curl
 ca-certificates
 network-manager
 dnsmasq-base
+avahi-daemon
 xserver-xorg
 x11-xserver-utils
 xinit
