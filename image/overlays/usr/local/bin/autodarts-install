@@ -33,8 +33,13 @@ VERSION="${VERSION:-latest}"
 HOST="$(printf '%s\n' "$INSTALLER_URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
 INSTALLER="/tmp/autodarts-installer.sh"
 
-while ! getent hosts "$HOST" >/dev/null 2>&1; do
-  echo "Waiting for DNS/network before installing Autodarts..." | tee -a "$LOG_FILE"
+network_online() {
+  nmcli -t -f STATE general status 2>/dev/null | grep -qx connected || return 1
+  getent hosts "$HOST" >/dev/null 2>&1
+}
+
+while ! network_online; do
+  echo "Waiting for Ethernet or WiFi before installing Autodarts..." | tee -a "$LOG_FILE"
   sleep 5
 done
 
@@ -52,4 +57,3 @@ fi
 
 touch "$MARKER"
 echo "Autodarts installation completed." | tee -a "$LOG_FILE"
-

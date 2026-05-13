@@ -103,6 +103,42 @@ def wifi_status():
     }
 
 
+def network_status():
+    device_code, device_stdout, device_stderr = run_command(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
+    general_code, general_stdout, general_stderr = run_command(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"])
+    ip_code, ip_stdout, ip_stderr = run_command(["hostname", "-I"])
+    ethernet_connected = any(
+        line.split(":")[1:3] == ["ethernet", "connected"]
+        for line in device_stdout.splitlines()
+        if len(line.split(":")) >= 3
+    )
+    wifi_connected = any(
+        line.split(":")[1:3] == ["wifi", "connected"]
+        for line in device_stdout.splitlines()
+        if len(line.split(":")) >= 3
+    )
+    return {
+        "online": ethernet_connected or wifi_connected,
+        "ethernet_connected": ethernet_connected,
+        "wifi_connected": wifi_connected,
+        "devices": {
+            "returncode": device_code,
+            "stdout": device_stdout,
+            "stderr": device_stderr,
+        },
+        "general": {
+            "returncode": general_code,
+            "stdout": general_stdout,
+            "stderr": general_stderr,
+        },
+        "ip_addresses": {
+            "returncode": ip_code,
+            "stdout": ip_stdout,
+            "stderr": ip_stderr,
+        },
+    }
+
+
 def is_authenticated(handler):
     config = read_config()
     header = handler.headers.get("Cookie", "")
@@ -218,6 +254,9 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 redirect(self, "/setup")
                 return
+            status = read_status()
+            status["network"] = network_status()
+            write_status(status)
             config["setup_mode"] = "false"
             write_config(config)
             redirect(self, config.get("play_url", "https://play.autodarts.io"))
@@ -251,7 +290,7 @@ class Handler(BaseHTTPRequestHandler):
                 "hostname": socket.gethostname(),
                 "config": public_config(config),
                 "setup": read_status(),
-                "network": wifi_status(),
+                "network": network_status(),
                 "services": {
                     "runtime": service_state("autodarts-runtime.service"),
                     "watchdog": service_state("autodarts-watchdog.service"),
@@ -295,6 +334,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             status = read_status()
+            net = network_status()
+            net_state = "online" if net["online"] else "offline"
+            net_panel = f"""<section class="panel"><h2>Netzwerk</h2><p>Status: <strong>{net_state}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))}</p><pre>{html.escape(net["devices"]["stdout"])}</pre><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></section>"""
             wifi = status.get("wifi", {})
             wifi_panel = ""
             if wifi:
@@ -307,7 +349,8 @@ class Handler(BaseHTTPRequestHandler):
                 wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><pre>{html.escape(current_wifi.get("stdout", ""))}</pre><pre>{html.escape(current_wifi.get("stderr", ""))}</pre></section>"""
 
             config_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in public_config(config).items())
-            content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort, Hostname und WLAN, danach Kamera- und Autodarts-Einrichtung.</p>
+            content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort und Hostname. WLAN ist optional, wenn ein Netzwerkkabel verbunden ist.</p>
+{net_panel}
 {wifi_panel}
 <form method="post" action="/setup/save">
   <h2>System</h2>
@@ -316,6 +359,7 @@ class Handler(BaseHTTPRequestHandler):
   <label for="setup_admin_password">Neues Setup-Passwort</label>
   <input id="setup_admin_password" name="setup_admin_password" type="password" placeholder="leer lassen, wenn unveraendert">
   <h2>WLAN</h2>
+  <p class="muted">Leer lassen, wenn du Ethernet verwendest.</p>
   <label for="wifi_ssid">WLAN-Name</label>
   <input id="wifi_ssid" name="wifi_ssid" value="{html.escape(config.get("wifi_ssid", ""))}">
   <label for="wifi_password">WLAN-Passwort</label>
@@ -326,7 +370,7 @@ class Handler(BaseHTTPRequestHandler):
 </form>
 <form method="post" action="/setup/finish">
   <h2>Setup abschliessen</h2>
-  <p class="muted">Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
+  <p class="muted">Das funktioniert mit Netzwerkkabel oder WLAN. Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
   <button type="submit">Setup abschliessen</button>
 </form>
 <section>
