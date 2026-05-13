@@ -11,11 +11,12 @@ if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
     echo
     echo "Autodarts Pi OS konnte die grafische Oberfläche nicht starten."
     echo
-    echo "Bitte öffne auf einem Gerät im selben Netzwerk:"
-    echo "  http://autodarts-pi.local"
-    echo "oder im Setup-Hotspot:"
-    echo "  http://auto.setup.go"
+    echo "Bitte öffne im Setup-Hotspot zuerst:"
     echo "  http://10.42.0.1"
+    echo "  http://auto.setup.go"
+    echo
+    echo "Nach erfolgreicher WLAN- oder LAN-Einrichtung:"
+    echo "  http://autodarts-pi.local"
     echo
     /usr/local/bin/autodarts-local-status 2>/dev/null || true
     echo

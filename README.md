@@ -115,6 +115,12 @@ Danach:
 http://auto.setup.go
 ```
 
+Falls die Adresse am Handy nicht sofort aufloest, diese feste Hotspot-IP verwenden:
+
+```text
+http://10.42.0.1
+```
+
 4. Mit dem Setup-Passwort einloggen:
 
 ```text

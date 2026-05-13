@@ -15,7 +15,6 @@ echo "Adressen:"
 hostname -I 2>/dev/null | sed 's/^/  /' || true
 echo
 echo "Setup-Adressen:"
-echo "  http://auto.setup.go"
 echo "  http://10.42.0.1"
+echo "  http://auto.setup.go"
 echo "  http://autodarts-pi.local"
-
