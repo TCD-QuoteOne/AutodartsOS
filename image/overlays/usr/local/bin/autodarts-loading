@@ -4,6 +4,8 @@ set -euo pipefail
 MESSAGE="${1:-Autodarts Pi OS wird gestartet}"
 BAR_WIDTH=32
 STEP=0
+SPLASH="/usr/share/autodarts-pi-os/splash.png"
+FBI_PID=""
 
 hide_cursor() {
   printf '\033[?25l'
@@ -13,14 +15,26 @@ show_cursor() {
   printf '\033[?25h'
 }
 
+start_splash() {
+  if command -v fbi >/dev/null 2>&1 && [[ -f "$SPLASH" ]]; then
+    fbi -T 1 -noverbose -a "$SPLASH" >/dev/null 2>&1 &
+    FBI_PID="$!"
+    sleep 1
+  fi
+}
+
 draw() {
   local filled empty spinner index
   spinner='/-\|'
   filled=$((STEP % (BAR_WIDTH + 1)))
   empty=$((BAR_WIDTH - filled))
   index=$((STEP % 4))
-  clear
-  printf '\n\n\n'
+  if [[ -z "$FBI_PID" ]]; then
+    clear
+    printf '\n\n\n'
+  else
+    printf '\033[18;1H'
+  fi
   printf '                         Autodarts Pi OS\n'
   printf '                    Setup und Kiosk werden vorbereitet\n\n'
   printf '              %s\n\n' "$MESSAGE"
@@ -31,8 +45,17 @@ draw() {
   printf '              Bitte warten. Das kann beim ersten Start einen Moment dauern.\n'
 }
 
-trap 'show_cursor; clear; exit 0' INT TERM EXIT
+cleanup() {
+  if [[ -n "$FBI_PID" ]]; then
+    kill "$FBI_PID" >/dev/null 2>&1 || true
+  fi
+  show_cursor
+  clear
+}
+
+trap 'cleanup; exit 0' INT TERM EXIT
 hide_cursor
+start_splash
 
 while true; do
   draw

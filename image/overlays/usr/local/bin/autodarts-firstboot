@@ -43,8 +43,10 @@ else
 fi
 echo "autodarts:autodarts" | chpasswd
 install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.bash_profile
+install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.profile
 touch /home/autodarts/.hushlogin
 chown autodarts:autodarts /home/autodarts/.bash_profile || true
+chown autodarts:autodarts /home/autodarts/.profile || true
 chown autodarts:autodarts /home/autodarts/.hushlogin || true
 
 if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
