@@ -20,7 +20,7 @@ fi
 existing_groups() {
   local groups=()
   local group
-  for group in video input render gpio netdev; do
+  for group in video input render gpio netdev tty audio; do
     if getent group "$group" >/dev/null 2>&1; then
       groups+=("$group")
     fi

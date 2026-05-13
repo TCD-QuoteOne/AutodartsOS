@@ -6,6 +6,7 @@ network-manager
 dnsmasq-base
 avahi-daemon
 xserver-xorg
+xserver-xorg-legacy
 x11-xserver-utils
 xinit
 openbox

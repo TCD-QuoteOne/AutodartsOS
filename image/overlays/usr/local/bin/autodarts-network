@@ -94,11 +94,7 @@ while true; do
   elif [[ "$state" == "configured" ]]; then
     stop_hotspot
   elif [[ "$state" == "factory" || "$state" == "recovery" ]]; then
-    if connected_network && [[ "$state" == "factory" ]]; then
-      stop_hotspot
-    else
-      ensure_hotspot
-    fi
+    ensure_hotspot
   else
     ensure_hotspot
   fi

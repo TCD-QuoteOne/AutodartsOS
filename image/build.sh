@@ -83,6 +83,8 @@ install -m 0644 files/usr/share/plymouth/themes/autodarts-pi-os/* "${ROOTFS_DIR}
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/splash.png"
 install -d "${ROOTFS_DIR}/etc/plymouth"
 install -m 0644 files/etc/plymouth/plymouthd.conf "${ROOTFS_DIR}/etc/plymouth/plymouthd.conf"
+install -d "${ROOTFS_DIR}/etc/X11"
+install -m 0644 files/etc/X11/Xwrapper.config "${ROOTFS_DIR}/etc/X11/Xwrapper.config"
 install -d "${ROOTFS_DIR}/etc/NetworkManager/dnsmasq-shared.d" "${ROOTFS_DIR}/etc/NetworkManager/dnsmasq.d"
 install -m 0644 files/etc/NetworkManager/dnsmasq-shared.d/autodarts-setup.conf "${ROOTFS_DIR}/etc/NetworkManager/dnsmasq-shared.d/autodarts-setup.conf"
 install -m 0644 files/etc/NetworkManager/dnsmasq.d/autodarts-setup.conf "${ROOTFS_DIR}/etc/NetworkManager/dnsmasq.d/autodarts-setup.conf"

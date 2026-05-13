@@ -15,6 +15,9 @@ if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
     echo "  http://autodarts-pi.local"
     echo "oder im Setup-Hotspot:"
     echo "  http://auto.setup.go"
+    echo "  http://10.42.0.1"
+    echo
+    /usr/local/bin/autodarts-local-status 2>/dev/null || true
     echo
     echo "Das System versucht den Bildschirm in 30 Sekunden erneut zu starten."
     echo "Diagnose: /var/log/autodarts-kiosk.log"
