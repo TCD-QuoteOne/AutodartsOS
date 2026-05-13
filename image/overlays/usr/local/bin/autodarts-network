@@ -106,6 +106,7 @@ write_wifi_status() {
   local ssid="${3:-}"
   local stdout="${4:-}"
   local stderr="${5:-}"
+  local assigned_ip="${6:-}"
 
   mkdir -p "$(dirname "$STATUS_FILE")"
   cat > "$STATUS_FILE" <<EOF
@@ -114,6 +115,7 @@ write_wifi_status() {
     "state": "$(json_string "$state")",
     "message": "$(json_string "$message")",
     "ssid": "$(json_string "$ssid")",
+    "assigned_ip": "$(json_string "$assigned_ip")",
     "stdout": "$(json_string "$stdout")",
     "stderr": "$(json_string "$stderr")"
   }
@@ -122,7 +124,7 @@ EOF
 }
 
 apply_pending_wifi() {
-  local device ssid password country tmp_stdout tmp_stderr code
+  local device ssid password country tmp_stdout tmp_stderr code assigned_ip
 
   [[ -f "$WIFI_APPLY_REQUEST" ]] || return 1
 
@@ -169,8 +171,9 @@ apply_pending_wifi() {
   set -e
 
   if [[ "$code" -eq 0 ]]; then
+    assigned_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
     echo "$(date -Is) WiFi connected to '$ssid'"
-    write_wifi_status "ok" "WLAN wurde verbunden. Verbinde dein Handy jetzt mit demselben Netzwerk und oeffne http://autodarts-pi.local oder die IP-Adresse des Pi." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
+    write_wifi_status "ok" "WLAN wurde verbunden. Verbinde dein Handy jetzt mit demselben Netzwerk und oeffne http://autodarts-pi.local oder die angezeigte IP-Adresse." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")" "$assigned_ip"
   else
     echo "$(date -Is) WiFi connection failed for '$ssid' with code $code"
     write_wifi_status "failed" "WLAN konnte nicht verbunden werden. Pruefe WLAN-Name und Passwort. Der Setup-Hotspot wird wieder gestartet." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
