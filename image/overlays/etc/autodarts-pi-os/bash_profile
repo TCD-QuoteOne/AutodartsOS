@@ -1,13 +1,26 @@
 if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
+  clear
+  /usr/local/bin/autodarts-loading "Autodarts Pi OS wird gestartet" &
+  loading_pid="$!"
   while true; do
     /usr/local/bin/autodarts-kiosk
     code="$?"
+    kill "$loading_pid" >/dev/null 2>&1 || true
+    wait "$loading_pid" 2>/dev/null || true
+    clear
     echo
-    echo "Autodarts Pi OS kiosk stopped with exit code ${code}."
-    echo "Last kiosk log lines:"
-    tail -n 30 /var/log/autodarts-kiosk.log 2>/dev/null || true
+    echo "Autodarts Pi OS konnte die grafische Oberfläche nicht starten."
     echo
-    echo "Retrying in 30 seconds. Press Ctrl+C for shell."
+    echo "Bitte öffne auf einem Gerät im selben Netzwerk:"
+    echo "  http://autodarts-pi.local"
+    echo "oder im Setup-Hotspot:"
+    echo "  http://auto.setup.go"
+    echo
+    echo "Das System versucht den Bildschirm in 30 Sekunden erneut zu starten."
+    echo "Diagnose: /var/log/autodarts-kiosk.log"
     sleep 30
+    clear
+    /usr/local/bin/autodarts-loading "Autodarts Pi OS wird erneut gestartet" &
+    loading_pid="$!"
   done
 fi

@@ -90,7 +90,8 @@ install -d "${ROOTFS_DIR}/etc/lightdm/lightdm.conf.d"
 install -m 0644 files/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf "${ROOTFS_DIR}/etc/lightdm/lightdm.conf.d/50-autodarts-autologin.conf"
 install -d "${ROOTFS_DIR}/home/autodarts"
 install -m 0644 files/etc/autodarts-pi-os/bash_profile "${ROOTFS_DIR}/home/autodarts/.bash_profile"
-chown 1000:1000 "${ROOTFS_DIR}/home/autodarts" "${ROOTFS_DIR}/home/autodarts/.bash_profile" || true
+touch "${ROOTFS_DIR}/home/autodarts/.hushlogin"
+chown 1000:1000 "${ROOTFS_DIR}/home/autodarts" "${ROOTFS_DIR}/home/autodarts/.bash_profile" "${ROOTFS_DIR}/home/autodarts/.hushlogin" || true
 rm -f "${ROOTFS_DIR}/etc/xdg/autostart/piwiz.desktop"
 SCRIPT
 

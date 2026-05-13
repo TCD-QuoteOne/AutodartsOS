@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MESSAGE="${1:-Autodarts Pi OS wird gestartet}"
+BAR_WIDTH=32
+STEP=0
+
+hide_cursor() {
+  printf '\033[?25l'
+}
+
+show_cursor() {
+  printf '\033[?25h'
+}
+
+draw() {
+  local filled empty spinner index
+  spinner='/-\|'
+  filled=$((STEP % (BAR_WIDTH + 1)))
+  empty=$((BAR_WIDTH - filled))
+  index=$((STEP % 4))
+  clear
+  printf '\n\n\n'
+  printf '                         Autodarts Pi OS\n'
+  printf '                    Setup und Kiosk werden vorbereitet\n\n'
+  printf '              %s\n\n' "$MESSAGE"
+  printf '              ['
+  printf '%*s' "$filled" '' | tr ' ' '#'
+  printf '%*s' "$empty" ''
+  printf '] %s\n\n' "${spinner:index:1}"
+  printf '              Bitte warten. Das kann beim ersten Start einen Moment dauern.\n'
+}
+
+trap 'show_cursor; clear; exit 0' INT TERM EXIT
+hide_cursor
+
+while true; do
+  draw
+  STEP=$((STEP + 1))
+  sleep 0.2
+done

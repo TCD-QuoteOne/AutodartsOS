@@ -25,6 +25,7 @@ required=(
   "image/overlays/usr/local/bin/autodarts-network"
   "image/overlays/usr/local/bin/autodarts-kiosk"
   "image/overlays/usr/local/bin/autodarts-kiosk-session"
+  "image/overlays/usr/local/bin/autodarts-loading"
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.plymouth"
   "image/overlays/usr/share/plymouth/themes/autodarts-pi-os/autodarts-pi-os.script"
   "image/overlays/etc/plymouth/plymouthd.conf"
