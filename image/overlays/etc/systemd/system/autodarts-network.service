@@ -1,0 +1,14 @@
+[Unit]
+Description=Autodarts Pi OS setup hotspot manager
+After=NetworkManager.service autodarts-firstboot.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/autodarts-network
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+

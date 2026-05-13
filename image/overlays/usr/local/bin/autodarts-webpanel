@@ -117,10 +117,15 @@ def network_status():
         for line in device_stdout.splitlines()
         if len(line.split(":")) >= 3
     )
+    setup_hotspot_active = any(
+        len(line.split(":")) >= 4 and line.split(":")[3] == "Autodarts-Setup"
+        for line in device_stdout.splitlines()
+    )
     return {
         "online": ethernet_connected or wifi_connected,
         "ethernet_connected": ethernet_connected,
         "wifi_connected": wifi_connected,
+        "setup_hotspot_active": setup_hotspot_active,
         "devices": {
             "returncode": device_code,
             "stdout": device_stdout,
@@ -246,6 +251,11 @@ class Handler(BaseHTTPRequestHandler):
                     "status": wifi_status(),
                 }
                 write_status(setup_status)
+                config["setup_mode"] = "true" if code != 0 else config.get("setup_mode", "true")
+            else:
+                setup_status = read_status()
+                setup_status["wifi"] = {"state": "skipped", "message": "WLAN wurde uebersprungen."}
+                write_status(setup_status)
             write_config(config)
             redirect(self, "/setup?saved=1")
             return
@@ -256,6 +266,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
             status = read_status()
             status["network"] = network_status()
+            if not status["network"]["online"]:
+                status["finish"] = {
+                    "state": "failed",
+                    "message": "Setup kann nicht abgeschlossen werden, solange weder Ethernet noch WLAN verbunden ist.",
+                }
+                write_status(status)
+                config["setup_mode"] = "true"
+                write_config(config)
+                redirect(self, "/setup?finish=network-missing")
+                return
+            status["finish"] = {"state": "ok", "message": "Setup abgeschlossen."}
             write_status(status)
             config["setup_mode"] = "false"
             write_config(config)
@@ -336,7 +357,12 @@ class Handler(BaseHTTPRequestHandler):
             status = read_status()
             net = network_status()
             net_state = "online" if net["online"] else "offline"
-            net_panel = f"""<section class="panel"><h2>Netzwerk</h2><p>Status: <strong>{net_state}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))}</p><pre>{html.escape(net["devices"]["stdout"])}</pre><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></section>"""
+            hotspot_note = ""
+            if net["setup_hotspot_active"]:
+                hotspot_note = f"""<p>Setup-Hotspot: <strong>{html.escape(config.get("setup_hotspot_ssid", "Autodarts-Setup"))}</strong><br>Adresse: <strong>http://{html.escape(config.get("setup_hotspot_host", "auto.setup.go"))}</strong><br>Passwort: <strong>{html.escape(config.get("setup_hotspot_password", "autodarts"))}</strong></p>"""
+            finish = status.get("finish", {})
+            finish_note = f"""<p>Status Setup-Abschluss: <strong>{html.escape(str(finish.get("state", "")))}</strong> {html.escape(str(finish.get("message", "")))}</p>""" if finish else ""
+            net_panel = f"""<section class="panel"><h2>Netzwerk</h2><p>Status: <strong>{net_state}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))} | Setup-Hotspot: {html.escape(str(net["setup_hotspot_active"]))}</p>{hotspot_note}{finish_note}<pre>{html.escape(net["devices"]["stdout"])}</pre><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></section>"""
             wifi = status.get("wifi", {})
             wifi_panel = ""
             if wifi:

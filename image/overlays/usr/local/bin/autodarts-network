@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
+LOG_FILE="/var/log/autodarts-network.log"
+HOTSPOT_NAME="Autodarts-Setup"
+
+exec >>"$LOG_FILE" 2>&1
+
+config_string() {
+  local key="$1"
+  awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+config_bool() {
+  local key="$1"
+  awk -F '=' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+wifi_device() {
+  nmcli -t -f DEVICE,TYPE device status | awk -F ':' '$2 == "wifi" {print $1; exit}'
+}
+
+connected_network() {
+  nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status | awk -F ':' '
+    $3 == "connected" && $4 != "Autodarts-Setup" && ($2 == "ethernet" || $2 == "wifi") { found=1 }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+hotspot_active() {
+  nmcli -t -f NAME,TYPE,DEVICE connection show --active | awk -F ':' '$1 == "Autodarts-Setup" { found=1 } END { exit found ? 0 : 1 }'
+}
+
+stop_hotspot() {
+  if hotspot_active; then
+    echo "$(date -Is) stopping setup hotspot"
+    nmcli connection down "$HOTSPOT_NAME" || true
+  fi
+}
+
+ensure_hotspot() {
+  local ssid password address device
+  ssid="$(config_string setup_hotspot_ssid)"
+  password="$(config_string setup_hotspot_password)"
+  address="$(config_string setup_hotspot_address)"
+  ssid="${ssid:-Autodarts-Setup}"
+  password="${password:-autodarts}"
+  address="${address:-10.42.0.1/24}"
+  device="$(wifi_device)"
+
+  if [[ -z "$device" ]]; then
+    echo "$(date -Is) no WiFi device available for setup hotspot"
+    return 0
+  fi
+
+  rfkill unblock wifi || true
+  nmcli radio wifi on || true
+
+  if ! nmcli connection show "$HOTSPOT_NAME" >/dev/null 2>&1; then
+    echo "$(date -Is) creating setup hotspot on $device"
+    nmcli connection add type wifi ifname "$device" con-name "$HOTSPOT_NAME" ssid "$ssid"
+  fi
+
+  nmcli connection modify "$HOTSPOT_NAME" \
+    802-11-wireless.mode ap \
+    802-11-wireless.ssid "$ssid" \
+    ipv4.method shared \
+    ipv4.addresses "$address" \
+    ipv6.method disabled \
+    connection.autoconnect no \
+    wifi-sec.key-mgmt wpa-psk \
+    wifi-sec.psk "$password"
+
+  if ! hotspot_active; then
+    echo "$(date -Is) starting setup hotspot: $ssid"
+    nmcli connection up "$HOTSPOT_NAME" || true
+  fi
+}
+
+while true; do
+  if [[ "$(config_bool setup_hotspot_enabled)" == "false" || "$(config_bool setup_mode)" == "false" ]]; then
+    stop_hotspot
+  elif connected_network; then
+    stop_hotspot
+  else
+    ensure_hotspot
+  fi
+  sleep 15
+done
+

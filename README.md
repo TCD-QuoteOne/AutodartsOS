@@ -10,6 +10,7 @@ Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares S
 - Kiosk-Ausgabe auf angeschlossenem Monitor mit `https://play.autodarts.io`
 - automatische Autodarts-Installation beim ersten Boot über den offiziellen Installer
 - lokaler Setup-Hub beim ersten Start statt Raspberry-Pi-OS-Userdialog
+- Setup-Hotspot `Autodarts-Setup` mit `http://auto.setup.go`
 - Konsolen-Autologin auf `tty1`, das den Kiosk im Lite-Image startet
 - `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
 - lokale Konfiguration über einfache TOML-Dateien
@@ -70,7 +71,7 @@ FIRST_USER_PASS=autodarts
 DISABLE_FIRST_BOOT_USER_RENAME=1
 ```
 
-Der Linux-Nutzer ist ein interner Appliance-User. Die eigentliche Einrichtung laeuft nicht ueber den Linux-Login, sondern ueber die lokale Weboberflaeche unter `http://autodarts-pi.local:8080` oder `http://<pi-ip>:8080`.
+Der Linux-Nutzer ist ein interner Appliance-User. Die eigentliche Einrichtung laeuft nicht ueber den Linux-Login, sondern ueber die lokale Weboberflaeche. Im Setup-Hotspot ist sie unter `http://auto.setup.go` erreichbar. Im normalen Netzwerk ist sie unter `http://autodarts-pi.local` oder `http://<pi-ip>` erreichbar.
 
 Die Beispielkonfiguration begrenzt den Build auf:
 
@@ -103,11 +104,16 @@ autodarts_command = "/usr/local/bin/autodarts-runtime"
 autodarts_install_enabled = true
 autodarts_version = "latest"
 autodarts_installer_url = "https://get.autodarts.io"
-webpanel_port = 8080
+webpanel_port = 80
 setup_mode = true
 setup_admin_user = "admin"
 setup_admin_password = "autodarts"
-setup_url = "http://localhost:8080/setup"
+setup_url = "http://localhost/setup"
+setup_hotspot_enabled = true
+setup_hotspot_ssid = "Autodarts-Setup"
+setup_hotspot_password = "autodarts"
+setup_hotspot_address = "10.42.0.1/24"
+setup_hotspot_host = "auto.setup.go"
 kiosk_enabled = true
 play_url = "https://play.autodarts.io"
 kiosk_url = "https://play.autodarts.io"

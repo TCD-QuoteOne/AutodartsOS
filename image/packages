@@ -3,6 +3,7 @@ plymouth-themes
 curl
 ca-certificates
 network-manager
+dnsmasq-base
 xserver-xorg
 x11-xserver-utils
 xinit
