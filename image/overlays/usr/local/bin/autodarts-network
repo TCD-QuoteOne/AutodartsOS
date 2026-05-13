@@ -4,6 +4,7 @@ set -euo pipefail
 CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
 LOG_FILE="/var/log/autodarts-network.log"
 HOTSPOT_NAME="Autodarts-Setup"
+SETUP_STATE_FILE="/var/lib/autodarts-pi-os/setup.state"
 
 exec >>"$LOG_FILE" 2>&1
 
@@ -26,6 +27,14 @@ connected_network() {
     $3 == "connected" && $4 != "Autodarts-Setup" && ($2 == "ethernet" || $2 == "wifi") { found=1 }
     END { exit found ? 0 : 1 }
   '
+}
+
+setup_state() {
+  if [[ -f "$SETUP_STATE_FILE" ]]; then
+    tr -d '[:space:]' < "$SETUP_STATE_FILE"
+  else
+    echo "factory"
+  fi
 }
 
 hotspot_active() {
@@ -79,13 +88,19 @@ ensure_hotspot() {
 }
 
 while true; do
-  if [[ "$(config_bool setup_hotspot_enabled)" == "false" || "$(config_bool setup_mode)" == "false" ]]; then
+  state="$(setup_state)"
+  if [[ "$(config_bool setup_hotspot_enabled)" == "false" ]]; then
     stop_hotspot
-  elif connected_network; then
+  elif [[ "$state" == "configured" ]]; then
     stop_hotspot
+  elif [[ "$state" == "factory" || "$state" == "recovery" ]]; then
+    if connected_network && [[ "$state" == "factory" ]]; then
+      stop_hotspot
+    else
+      ensure_hotspot
+    fi
   else
     ensure_hotspot
   fi
   sleep 15
 done
-

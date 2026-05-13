@@ -5,11 +5,16 @@ STATE_DIR="/var/lib/autodarts-pi-os"
 CONFIG_DIR="/etc/autodarts-pi-os"
 SEED_CONFIG="/boot/firmware/autodarts-config.toml"
 CONFIG_FILE="$CONFIG_DIR/config.toml"
+SETUP_STATE="$STATE_DIR/setup.state"
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
 
 if [[ -f "$SEED_CONFIG" ]]; then
   cp "$SEED_CONFIG" "$CONFIG_FILE"
+fi
+
+if [[ ! -f "$SETUP_STATE" ]]; then
+  echo "factory" > "$SETUP_STATE"
 fi
 
 existing_groups() {

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE_DIR="/var/lib/autodarts-pi-os"
+CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
+DEFAULT_CONFIG="/usr/share/autodarts-pi-os/default-config.toml"
+SETUP_STATE="$STATE_DIR/setup.state"
+RECOVERY_FLAG="/boot/firmware/autodarts-recovery"
+FACTORY_RESET_FLAG="/boot/firmware/autodarts-factory-reset"
+
+mkdir -p "$STATE_DIR"
+
+if [[ ! -f "$SETUP_STATE" ]]; then
+  echo "factory" > "$SETUP_STATE"
+fi
+
+if [[ -f "$RECOVERY_FLAG" ]]; then
+  echo "recovery" > "$SETUP_STATE"
+  rm -f "$RECOVERY_FLAG"
+fi
+
+if [[ -f "$FACTORY_RESET_FLAG" ]]; then
+  if [[ -f "$DEFAULT_CONFIG" ]]; then
+    cp "$DEFAULT_CONFIG" "$CONFIG_FILE"
+  fi
+  rm -f "$STATE_DIR"/setup-status.json "$STATE_DIR"/autodarts-install.done
+  echo "factory" > "$SETUP_STATE"
+  rm -f "$FACTORY_RESET_FLAG"
+fi
+

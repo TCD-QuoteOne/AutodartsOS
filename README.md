@@ -128,6 +128,8 @@ autodarts
 9. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschließen` gedrückt werden.
 10. Danach startet der Kiosk auf Autodarts Play.
 
+Nach einem erfolgreichen Setup merkt sich Autodarts Pi OS den Zustand `configured`. Ein späterer Internet- oder WLAN-Ausfall startet den Setup-Hotspot dann nicht automatisch erneut.
+
 ### Variante B: Einrichtung per Netzwerkkabel
 
 Wenn ein LAN-Kabel angeschlossen ist, bekommt der Pi normalerweise automatisch eine IP-Adresse per DHCP.
@@ -155,6 +157,60 @@ http://localhost/setup
 ```
 
 Das ist hilfreich, wenn weder Handy-Hotspot-Setup noch Ethernet verfügbar sind.
+
+## Admin-Oberfläche Und Recovery
+
+Nach abgeschlossenem Setup ist die Weboberfläche im normalen Netzwerk erreichbar:
+
+```text
+http://autodarts-pi.local
+```
+
+oder per IP-Adresse:
+
+```text
+http://<pi-ip>
+```
+
+Die Startseite führt dann in den Adminbereich. Dort können Status, Dienste, Logs und Setup-Aktionen geöffnet werden.
+
+### Recovery-Hotspot
+
+Wenn das Gerät bereits eingerichtet ist, startet der Setup-Hotspot bei normalem Netzwerkausfall nicht automatisch. Für eine bewusste Neueinrichtung gibt es drei Wege:
+
+1. Im Adminbereich `Recovery-Hotspot starten` wählen.
+2. Auf der Boot-Partition eine leere Datei anlegen:
+
+```text
+autodarts-recovery
+```
+
+3. Neu starten.
+
+Danach öffnet der Pi wieder den Hotspot:
+
+```text
+Autodarts-Setup
+```
+
+und die Setup-Seite ist erreichbar unter:
+
+```text
+http://auto.setup.go
+```
+
+### Factory Reset
+
+Für einen Reset auf die Image-Defaults:
+
+1. Im Adminbereich `Factory Reset vorbereiten` wählen, oder
+2. auf der Boot-Partition eine leere Datei anlegen:
+
+```text
+autodarts-factory-reset
+```
+
+Beim nächsten Boot wird die Default-Konfiguration wiederhergestellt und der Setup-Zustand auf `factory` gesetzt.
 
 Beispiel für eine spätere Boot-Seed-Konfiguration:
 

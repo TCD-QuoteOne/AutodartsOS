@@ -1,0 +1,12 @@
+[Unit]
+Description=Autodarts Pi OS boot control flags
+After=local-fs.target
+Before=autodarts-network.service autodarts-webpanel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/autodarts-bootctl
+
+[Install]
+WantedBy=multi-user.target
+
