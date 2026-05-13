@@ -3,6 +3,10 @@ set -euo pipefail
 
 CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
 DEFAULT_URL="https://play.autodarts.io"
+LOG_FILE="/var/log/autodarts-kiosk.log"
+
+exec >>"$LOG_FILE" 2>&1
+echo "==== $(date -Is) Starting Autodarts kiosk ===="
 
 config_value() {
   local key="$1"
@@ -39,4 +43,10 @@ if [[ -n "${DISPLAY:-}" ]]; then
   exec /usr/local/bin/autodarts-kiosk-session "$URL"
 fi
 
+if [[ -e /tmp/.X0-lock ]]; then
+  echo "Removing stale X lock."
+  rm -f /tmp/.X0-lock
+fi
+
+echo "Launching X kiosk for $URL"
 exec startx /usr/local/bin/autodarts-kiosk-session "$URL" -- :0 -nolisten tcp

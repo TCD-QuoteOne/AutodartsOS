@@ -10,6 +10,8 @@ from urllib.parse import parse_qs, urlparse
 
 CONFIG = Path("/etc/autodarts-pi-os/config.toml")
 SPLASH = Path("/usr/share/autodarts-pi-os/splash.png")
+STATUS_FILE = Path("/var/lib/autodarts-pi-os/setup-status.json")
+KIOSK_LOG = Path("/var/log/autodarts-kiosk.log")
 PORT = 8080
 
 
@@ -70,12 +72,35 @@ def run_command(command):
             command,
             text=True,
             capture_output=True,
-            timeout=20,
+            timeout=75,
             check=False,
         )
         return result.returncode, result.stdout.strip(), result.stderr.strip()
     except Exception as exc:
         return 1, "", str(exc)
+
+
+def read_status():
+    if not STATUS_FILE.exists():
+        return {}
+    try:
+        return json.loads(STATUS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def write_status(values):
+    STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATUS_FILE.write_text(json.dumps(values, indent=2), encoding="utf-8")
+
+
+def wifi_status():
+    code, stdout, stderr = run_command(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
+    return {
+        "returncode": code,
+        "stdout": stdout,
+        "stderr": stderr,
+    }
 
 
 def is_authenticated(handler):
@@ -167,11 +192,24 @@ class Handler(BaseHTTPRequestHandler):
             if wifi_ssid:
                 config["wifi_ssid"] = wifi_ssid
                 config["wifi_country"] = wifi_country
+                setup_status = read_status()
+                setup_status["wifi"] = {"state": "running", "message": "WLAN-Verbindung wird eingerichtet."}
+                write_status(setup_status)
+                run_command(["rfkill", "unblock", "wifi"])
                 run_command(["nmcli", "radio", "wifi", "on"])
-                command = ["nmcli", "dev", "wifi", "connect", wifi_ssid]
+                run_command(["nmcli", "device", "wifi", "rescan"])
+                command = ["nmcli", "--wait", "60", "dev", "wifi", "connect", wifi_ssid]
                 if wifi_password:
                     command.extend(["password", wifi_password])
-                run_command(command)
+                code, stdout, stderr = run_command(command)
+                setup_status["wifi"] = {
+                    "state": "ok" if code == 0 else "failed",
+                    "returncode": code,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "status": wifi_status(),
+                }
+                write_status(setup_status)
             write_config(config)
             redirect(self, "/setup?saved=1")
             return
@@ -212,6 +250,8 @@ class Handler(BaseHTTPRequestHandler):
             payload = {
                 "hostname": socket.gethostname(),
                 "config": public_config(config),
+                "setup": read_status(),
+                "network": wifi_status(),
                 "services": {
                     "runtime": service_state("autodarts-runtime.service"),
                     "watchdog": service_state("autodarts-watchdog.service"),
@@ -221,6 +261,16 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(payload, indent=2).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if path == "/logs/kiosk":
+            payload = KIOSK_LOG.read_text(encoding="utf-8", errors="replace")[-12000:] if KIOSK_LOG.exists() else "No kiosk log yet."
+            body = payload.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -244,8 +294,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
                 return
 
+            status = read_status()
+            wifi = status.get("wifi", {})
+            wifi_panel = ""
+            if wifi:
+                state = html.escape(str(wifi.get("state", "")))
+                stdout = html.escape(str(wifi.get("stdout", "")))
+                stderr = html.escape(str(wifi.get("stderr", "")))
+                wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><p>Status: <strong>{state}</strong></p><pre>{stdout}</pre><pre>{stderr}</pre></section>"""
+            else:
+                current_wifi = wifi_status()
+                wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><pre>{html.escape(current_wifi.get("stdout", ""))}</pre><pre>{html.escape(current_wifi.get("stderr", ""))}</pre></section>"""
+
             config_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in public_config(config).items())
             content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort, Hostname und WLAN, danach Kamera- und Autodarts-Einrichtung.</p>
+{wifi_panel}
 <form method="post" action="/setup/save">
   <h2>System</h2>
   <label for="hostname">Hostname</label>
@@ -268,6 +331,7 @@ class Handler(BaseHTTPRequestHandler):
 </form>
 <section>
   <a class="button" href="/health.json">Systemstatus</a>
+  <a class="button" href="/logs/kiosk">Kiosk-Log</a>
   <a class="button" href="https://play.autodarts.io">Autodarts Play</a>
 </section>
 <section><h2>Aktuelle Konfiguration</h2><table>{config_rows}</table></section>"""

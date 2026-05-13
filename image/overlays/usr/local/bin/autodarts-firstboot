@@ -40,6 +40,11 @@ echo "autodarts:autodarts" | chpasswd
 install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.bash_profile
 chown autodarts:autodarts /home/autodarts/.bash_profile || true
 
+if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
+  systemctl enable NetworkManager.service || true
+  systemctl start NetworkManager.service || true
+fi
+
 HOSTNAME="$(awk -F '"' '/^hostname[[:space:]]*=/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true)"
 if [[ -n "$HOSTNAME" ]]; then
   hostnamectl set-hostname "$HOSTNAME" || true

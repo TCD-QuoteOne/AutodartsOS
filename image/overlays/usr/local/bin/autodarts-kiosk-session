@@ -2,6 +2,7 @@
 set -euo pipefail
 
 URL="${1:-https://play.autodarts.io}"
+echo "Starting kiosk session for $URL"
 
 xset s off || true
 xset -dpms || true
@@ -12,7 +13,7 @@ openbox >/dev/null 2>&1 &
 BROWSER="$(command -v chromium-browser || command -v chromium || true)"
 if [[ -z "$BROWSER" ]]; then
   echo "Chromium is not installed."
-  sleep infinity
+  exit 20
 fi
 
 exec "$BROWSER" \
@@ -22,5 +23,6 @@ exec "$BROWSER" \
   --disable-session-crashed-bubble \
   --disable-features=TranslateUI \
   --autoplay-policy=no-user-gesture-required \
+  --noerrdialogs \
+  --check-for-update-interval=31536000 \
   --start-maximized
-

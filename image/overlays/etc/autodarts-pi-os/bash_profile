@@ -1,4 +1,13 @@
 if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
-  exec /usr/local/bin/autodarts-kiosk
+  while true; do
+    /usr/local/bin/autodarts-kiosk
+    code="$?"
+    echo
+    echo "Autodarts Pi OS kiosk stopped with exit code ${code}."
+    echo "Last kiosk log lines:"
+    tail -n 30 /var/log/autodarts-kiosk.log 2>/dev/null || true
+    echo
+    echo "Retrying in 30 seconds. Press Ctrl+C for shell."
+    sleep 30
+  done
 fi
-
