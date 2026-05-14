@@ -63,6 +63,22 @@ mark_configured() {
   echo "configured" > "$SETUP_STATE_FILE"
 }
 
+write_network_status() {
+  local message="$1"
+  local assigned_ip
+  assigned_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  mkdir -p "$(dirname "$STATUS_FILE")"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "network": {
+    "state": "ok",
+    "message": "$(json_string "$message")",
+    "assigned_ip": "$(json_string "$assigned_ip")"
+  }
+}
+EOF
+}
+
 wifi_device() {
   nmcli -t -f DEVICE,TYPE device status | awk -F ':' '$2 == "wifi" {print $1; exit}'
 }
@@ -264,6 +280,11 @@ while true; do
   if [[ "$(config_bool setup_hotspot_enabled)" == "false" ]]; then
     stop_hotspot
   elif [[ "$state" == "configured" ]]; then
+    stop_hotspot
+  elif [[ "$state" == "factory" ]] && connected_network; then
+    echo "$(date -Is) factory setup completed by existing network connection"
+    mark_configured
+    write_network_status "Netzwerk wurde bereits vorkonfiguriert oder per Ethernet verbunden. Der Setup-Hotspot wird nicht gestartet."
     stop_hotspot
   elif connected_wifi; then
     stop_hotspot

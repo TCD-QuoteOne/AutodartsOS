@@ -6,12 +6,46 @@ CONFIG_DIR="/etc/autodarts-pi-os"
 SEED_CONFIG="/boot/firmware/autodarts-config.toml"
 CONFIG_FILE="$CONFIG_DIR/config.toml"
 SETUP_STATE="$STATE_DIR/setup.state"
+STATUS_FILE="$STATE_DIR/setup-status.json"
+SEED_USED=false
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
 
 if [[ -f "$SEED_CONFIG" ]]; then
   cp "$SEED_CONFIG" "$CONFIG_FILE"
+  SEED_USED=true
 fi
+
+config_string() {
+  local key="$1"
+  awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+set_config_string() {
+  local key="$1"
+  local value="$2"
+  local escaped
+  escaped="$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  if grep -qE "^${key}[[:space:]]*=" "$CONFIG_FILE" 2>/dev/null; then
+    sed -i -E "s|^${key}[[:space:]]*=.*|${key} = \"${escaped}\"|" "$CONFIG_FILE"
+  else
+    printf '%s = "%s"\n' "$key" "$escaped" >> "$CONFIG_FILE"
+  fi
+}
+
+set_config_bool() {
+  local key="$1"
+  local value="$2"
+  if grep -qE "^${key}[[:space:]]*=" "$CONFIG_FILE" 2>/dev/null; then
+    sed -i -E "s|^${key}[[:space:]]*=.*|${key} = ${value}|" "$CONFIG_FILE"
+  else
+    printf '%s = %s\n' "$key" "$value" >> "$CONFIG_FILE"
+  fi
+}
+
+json_string() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g' | tr '\n' ' '
+}
 
 if [[ ! -f "$SETUP_STATE" ]]; then
   echo "factory" > "$SETUP_STATE"
@@ -55,9 +89,31 @@ if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
   systemctl start NetworkManager.service || true
 fi
 
-HOSTNAME="$(awk -F '"' '/^hostname[[:space:]]*=/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true)"
-if [[ -n "$HOSTNAME" ]]; then
+CURRENT_HOSTNAME="$(hostnamectl --static status 2>/dev/null || hostname 2>/dev/null || true)"
+HOSTNAME="$(config_string hostname)"
+if [[ "$SEED_USED" != "true" && -n "$CURRENT_HOSTNAME" && "$CURRENT_HOSTNAME" != "raspberrypi" && "$CURRENT_HOSTNAME" != "$HOSTNAME" ]]; then
+  set_config_string hostname "$CURRENT_HOSTNAME"
+elif [[ -n "$HOSTNAME" ]]; then
   hostnamectl set-hostname "$HOSTNAME" || true
+elif [[ -n "$CURRENT_HOSTNAME" ]]; then
+  set_config_string hostname "$CURRENT_HOSTNAME"
+fi
+
+if nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11-wireless" && $1 != "Autodarts-Setup" { found=1 } END { exit found ? 0 : 1 }'; then
+  SSID="$(nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11-wireless" && $1 != "Autodarts-Setup" { print $1; exit }')"
+  set_config_string wifi_ssid "$SSID"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "wifi": {
+    "state": "pending",
+    "message": "WLAN wurde ueber Raspberry Pi Imager vorkonfiguriert. Sobald die Verbindung steht, wird das Setup automatisch abgeschlossen. Wenn sie fehlschlaegt, startet der Setup-Hotspot.",
+    "ssid": "$(json_string "$SSID")",
+    "assigned_ip": "",
+    "stdout": "Raspberry Pi Imager NetworkManager profile detected.",
+    "stderr": ""
+  }
+}
+EOF
 fi
 
 touch "$STATE_DIR/firstboot.done"

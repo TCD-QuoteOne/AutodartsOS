@@ -96,6 +96,12 @@ Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. 
 
 ## Setup-Ablauf Für Nutzer
 
+### Vorab: Raspberry Pi Imager
+
+Autodarts Pi OS ist mit den normalen Raspberry-Pi-Imager-Anpassungen kompatibel. Du kannst im Imager also bereits WLAN, Hostname und SSH hinterlegen. Beim ersten Boot uebernimmt Raspberry Pi OS diese Werte wie beim Standard-Image. Autodarts Pi OS erkennt anschliessend eine funktionierende vorkonfigurierte Netzwerkverbindung und schliesst den lokalen Setup-Modus automatisch ab.
+
+Wenn die im Imager eingetragenen WLAN-Daten falsch sind oder das WLAN nicht erreichbar ist, bleibt Autodarts Pi OS im Factory-Setup und startet den Hotspot `Autodarts-Setup`. Dann kannst du die Daten wie unten beschrieben ueber `http://auto.setup.go` korrigieren.
+
 ### Variante A: Einrichtung per Handy oder Laptop über Setup-Hotspot
 
 Wenn der Raspberry Pi noch kein Netzwerk hat, öffnet Autodarts Pi OS automatisch ein eigenes WLAN:
