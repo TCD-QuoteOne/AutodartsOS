@@ -15,6 +15,7 @@ SPLASH = Path("/usr/share/autodarts-pi-os/splash.png")
 STATUS_FILE = Path("/var/lib/autodarts-pi-os/setup-status.json")
 SETUP_STATE = Path("/var/lib/autodarts-pi-os/setup.state")
 WIFI_APPLY_REQUEST = Path("/var/lib/autodarts-pi-os/wifi-apply.request")
+WIFI_CREDENTIALS = Path("/var/lib/autodarts-pi-os/wifi-credentials.json")
 KIOSK_LOG = Path("/var/log/autodarts-kiosk.log")
 NETWORK_LOG = Path("/var/log/autodarts-network.log")
 INSTALL_LOG = Path("/var/log/autodarts-install.log")
@@ -44,7 +45,8 @@ def write_config(values):
         elif str(value).isdigit():
             rendered = str(value)
         else:
-            rendered = f'"{str(value)}"'
+            escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+            rendered = f'"{escaped}"'
         lines.append(f"{key} = {rendered}")
     CONFIG.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -123,6 +125,27 @@ def read_setup_state():
 def write_setup_state(value):
     SETUP_STATE.parent.mkdir(parents=True, exist_ok=True)
     SETUP_STATE.write_text(value + "\n", encoding="utf-8")
+
+
+def read_wifi_credentials():
+    if not WIFI_CREDENTIALS.exists():
+        return {}
+    try:
+        return json.loads(WIFI_CREDENTIALS.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def write_wifi_credentials(ssid, password, country):
+    WIFI_CREDENTIALS.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "ssid": ssid,
+        "password": password,
+        "country": country,
+        "password_saved": bool(password),
+    }
+    WIFI_CREDENTIALS.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    WIFI_CREDENTIALS.chmod(0o600)
 
 
 def mark_setup_configured(config, status, message):
@@ -244,7 +267,7 @@ def redirect(handler, target):
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", "0"))
-        data = parse_qs(self.rfile.read(length).decode("utf-8"))
+        data = parse_qs(self.rfile.read(length).decode("utf-8"), keep_blank_values=True)
         config = read_config()
 
         if self.path == "/login":
@@ -277,11 +300,13 @@ class Handler(BaseHTTPRequestHandler):
                 config["setup_admin_password"] = admin_password
                 reset_session_token()
             if wifi_ssid:
-                previous_wifi_password = config.get("wifi_password", "")
+                stored_wifi = read_wifi_credentials()
+                previous_wifi_password = stored_wifi.get("password") or config.get("wifi_password", "")
                 effective_wifi_password = wifi_password if wifi_password else previous_wifi_password
                 config["wifi_ssid"] = wifi_ssid
                 config["wifi_password"] = effective_wifi_password
                 config["wifi_country"] = wifi_country
+                write_wifi_credentials(wifi_ssid, effective_wifi_password, wifi_country)
                 write_config(config)
                 setup_status = read_status()
                 if effective_wifi_password:
@@ -292,12 +317,14 @@ class Handler(BaseHTTPRequestHandler):
                             "die Verbindung wird getestet und bei Erfolg dauerhaft gespeichert."
                         ),
                         "ssid": wifi_ssid,
+                        "password_saved": True,
                     }
                 else:
                     setup_status["wifi"] = {
                         "state": "failed",
                         "message": "Es wurde kein WLAN-Passwort gespeichert. Trage das Passwort ein und speichere erneut.",
                         "ssid": wifi_ssid,
+                        "password_saved": False,
                     }
                 write_status(setup_status)
                 if effective_wifi_password:
@@ -537,6 +564,8 @@ class Handler(BaseHTTPRequestHandler):
                 wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><pre>{html.escape(current_wifi.get("stdout", ""))}</pre><pre>{html.escape(current_wifi.get("stderr", ""))}</pre></section>"""
 
             config_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in public_config(config).items())
+            stored_wifi = read_wifi_credentials()
+            saved_password_note = "gespeichert" if stored_wifi.get("password_saved") else "nicht gespeichert"
             content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort und Hostname. Mit Netzwerkkabel wird das Setup beim Speichern abgeschlossen. Mit WLAN passiert das nach erfolgreichem Verbindungstest.</p>
 {net_panel}
 {wifi_panel}
@@ -552,6 +581,7 @@ class Handler(BaseHTTPRequestHandler):
   <input id="wifi_ssid" name="wifi_ssid" value="{html.escape(config.get("wifi_ssid", ""))}">
   <label for="wifi_password">WLAN-Passwort</label>
   <input id="wifi_password" name="wifi_password" type="password" placeholder="leer lassen, um gespeichertes Passwort zu behalten">
+  <p class="muted">Passwortstatus: <strong>{html.escape(saved_password_note)}</strong></p>
   <label for="wifi_country">Land</label>
   <input id="wifi_country" name="wifi_country" value="{html.escape(config.get("wifi_country", "DE"))}">
   <button type="submit">Speichern und anwenden</button>

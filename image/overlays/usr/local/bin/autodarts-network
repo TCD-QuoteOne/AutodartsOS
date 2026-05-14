@@ -8,6 +8,7 @@ WIFI_CLIENT_NAME="Autodarts-WiFi"
 SETUP_STATE_FILE="/var/lib/autodarts-pi-os/setup.state"
 STATUS_FILE="/var/lib/autodarts-pi-os/setup-status.json"
 WIFI_APPLY_REQUEST="/var/lib/autodarts-pi-os/wifi-apply.request"
+WIFI_CREDENTIALS="/var/lib/autodarts-pi-os/wifi-credentials.json"
 
 exec >>"$LOG_FILE" 2>&1
 
@@ -19,6 +20,23 @@ config_string() {
 config_bool() {
   local key="$1"
   awk -F '=' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
+credential_string() {
+  local key="$1"
+  if [[ -f "$WIFI_CREDENTIALS" ]] && command -v python3 >/dev/null 2>&1; then
+    python3 - "$WIFI_CREDENTIALS" "$key" <<'PY'
+import json
+import sys
+path, key = sys.argv[1], sys.argv[2]
+try:
+    with open(path, encoding="utf-8") as handle:
+        value = json.load(handle).get(key, "")
+except Exception:
+    value = ""
+print(value or "")
+PY
+  fi
 }
 
 set_config_bool() {
@@ -145,9 +163,12 @@ apply_pending_wifi() {
 
   [[ -f "$WIFI_APPLY_REQUEST" ]] || return 1
 
-  ssid="$(config_string wifi_ssid)"
-  password="$(config_string wifi_password)"
-  country="$(config_string wifi_country)"
+  ssid="$(credential_string ssid)"
+  password="$(credential_string password)"
+  country="$(credential_string country)"
+  ssid="${ssid:-$(config_string wifi_ssid)}"
+  password="${password:-$(config_string wifi_password)}"
+  country="${country:-$(config_string wifi_country)}"
   country="${country:-DE}"
 
   if [[ -z "$ssid" ]]; then
