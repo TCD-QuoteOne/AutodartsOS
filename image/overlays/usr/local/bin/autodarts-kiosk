@@ -5,6 +5,12 @@ CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
 DEFAULT_URL="https://play.autodarts.io"
 LOG_FILE="/var/log/autodarts-kiosk.log"
 
+if ! { touch "$LOG_FILE" >/dev/null 2>&1 && [[ -w "$LOG_FILE" ]]; }; then
+  LOG_FILE="${HOME:-/tmp}/.local/state/autodarts-pi-os/kiosk.log"
+  mkdir -p "$(dirname "$LOG_FILE")"
+  touch "$LOG_FILE" >/dev/null 2>&1 || LOG_FILE="/tmp/autodarts-kiosk.log"
+fi
+
 exec >>"$LOG_FILE" 2>&1
 echo "==== $(date -Is) Starting Autodarts kiosk ===="
 

@@ -1,7 +1,6 @@
 [Unit]
 Description=Autodarts Pi OS local web panel
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
@@ -11,4 +10,3 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-

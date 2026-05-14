@@ -6,6 +6,7 @@ BAR_WIDTH=32
 STEP=0
 SPLASH="/usr/share/autodarts-pi-os/splash.png"
 FBI_PID=""
+SPLASH_TEXT=""
 
 hide_cursor() {
   printf '\033[?25l'
@@ -16,7 +17,10 @@ show_cursor() {
 }
 
 start_splash() {
-  if command -v fbi >/dev/null 2>&1 && [[ -f "$SPLASH" ]]; then
+  if command -v chafa >/dev/null 2>&1 && [[ -f "$SPLASH" ]]; then
+    SPLASH_TEXT="$(chafa --size=42x12 --symbols=block "$SPLASH" 2>/dev/null || true)"
+  fi
+  if [[ "$(id -u)" = "0" ]] && command -v fbi >/dev/null 2>&1 && [[ -f "$SPLASH" ]]; then
     fbi -T 1 -noverbose -a "$SPLASH" >/dev/null 2>&1 &
     FBI_PID="$!"
     sleep 1
@@ -31,7 +35,11 @@ draw() {
   index=$((STEP % 4))
   if [[ -z "$FBI_PID" ]]; then
     clear
-    printf '\n\n\n'
+    if [[ -n "$SPLASH_TEXT" ]]; then
+      printf '%s\n\n' "$SPLASH_TEXT"
+    else
+      printf '\n\n\n'
+    fi
   else
     printf '\033[18;1H'
   fi
