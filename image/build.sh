@@ -64,6 +64,7 @@ ln -sf ../autodarts-runtime.service "${ROOTFS_DIR}/etc/systemd/system/multi-user
 ln -sf ../autodarts-watchdog.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-watchdog.service"
 ln -sf ../autodarts-webpanel.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-webpanel.service"
 ln -sf ../autodarts-network.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-network.service"
+ln -sf ../autodarts-kiosk.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-kiosk.service"
 install -d "${ROOTFS_DIR}/etc/autodarts-pi-os"
 install -m 0644 files/etc/autodarts-pi-os/config.toml "${ROOTFS_DIR}/etc/autodarts-pi-os/config.toml"
 install -d "${ROOTFS_DIR}/usr/share/autodarts-pi-os"

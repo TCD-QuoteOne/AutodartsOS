@@ -1,7 +1,8 @@
 [Unit]
 Description=Autodarts Pi OS kiosk display
-After=network-online.target autodarts-firstboot.service
-Wants=network-online.target
+After=systemd-user-sessions.service autodarts-firstboot.service autodarts-webpanel.service
+Wants=autodarts-webpanel.service
+Conflicts=getty@tty1.service
 
 [Service]
 Type=simple
@@ -9,11 +10,20 @@ User=autodarts
 Group=autodarts
 Environment=HOME=/home/autodarts
 Environment=XDG_RUNTIME_DIR=/tmp/runtime-autodarts
+Environment=XINITRC=/usr/local/bin/autodarts-kiosk-session
+WorkingDirectory=/home/autodarts
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal+console
+StandardError=journal+console
 ExecStartPre=+/usr/bin/touch /var/log/autodarts-kiosk.log
 ExecStartPre=+/usr/bin/chown autodarts:autodarts /var/log/autodarts-kiosk.log
 ExecStart=/usr/local/bin/autodarts-kiosk
 Restart=always
-RestartSec=5
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target

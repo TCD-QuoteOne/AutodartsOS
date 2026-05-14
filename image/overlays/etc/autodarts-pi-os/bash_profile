@@ -1,29 +1,12 @@
 if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
-  while true; do
-    clear
-    /usr/local/bin/autodarts-loading "Autodarts Pi OS wird gestartet" &
-    loading_pid="$!"
-    sleep 3
-    kill "$loading_pid" >/dev/null 2>&1 || true
-    wait "$loading_pid" 2>/dev/null || true
-    clear
-    /usr/local/bin/autodarts-kiosk
-    code="$?"
-    clear
-    echo
-    echo "Autodarts Pi OS konnte die grafische Oberfläche nicht starten."
-    echo
-    echo "Bitte öffne im Setup-Hotspot zuerst:"
-    echo "  http://10.42.0.1"
-    echo "  http://auto.setup.go"
-    echo
-    echo "Nach erfolgreicher WLAN- oder LAN-Einrichtung:"
-    echo "  http://autodarts-pi.local"
-    echo
-    /usr/local/bin/autodarts-local-status 2>/dev/null || true
-    echo
-    echo "Das System versucht den Bildschirm in 30 Sekunden erneut zu starten."
-    echo "Diagnose: /var/log/autodarts-kiosk.log"
-    sleep 30
-  done
+  clear
+  echo "Autodarts Pi OS verwaltet den Bildschirm ueber systemd."
+  echo
+  echo "Status:"
+  systemctl --no-pager status autodarts-kiosk.service || true
+  echo
+  echo "Setup-Adressen:"
+  echo "  http://10.42.0.1"
+  echo "  http://auto.setup.go"
+  echo "  http://autodarts-pi.local"
 fi

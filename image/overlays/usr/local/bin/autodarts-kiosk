@@ -50,6 +50,7 @@ if [[ -e /tmp/.X0-lock ]]; then
   echo "Removing stale X lock."
   rm -f /tmp/.X0-lock
 fi
+rm -f /tmp/.X11-unix/X0 >/dev/null 2>&1 || true
 
 echo "Launching X kiosk for $URL"
-exec startx /usr/local/bin/autodarts-kiosk-session "$URL" -- :0 -nolisten tcp
+exec startx /usr/local/bin/autodarts-kiosk-session "$URL" -- :0 vt1 -keeptty -nolisten tcp
