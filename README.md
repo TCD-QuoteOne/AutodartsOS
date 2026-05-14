@@ -7,7 +7,7 @@ Autodarts Pi OS ist ein Open-Source-Projekt für ein Raspberry-Pi-OS-Lite-basier
 Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares System:
 
 - eigener Boot-Screen mit Autodarts-Pi-OS-Splash
-- Kiosk-Ausgabe auf angeschlossenem Monitor mit `https://play.autodarts.io`
+- Kiosk-Ausgabe auf angeschlossenem Monitor mit lokalem Autodarts-Status und Weiterleitung zum Autodarts-Konfigurationsmodus
 - automatische Autodarts-Installation beim ersten Boot über den offiziellen Installer
 - lokaler Setup-Hub beim ersten Start statt Raspberry-Pi-OS-Userdialog
 - Setup-Hotspot `Autodarts-Setup` mit `http://auto.setup.go`
@@ -133,9 +133,11 @@ autodarts
 8. Wenn das WLAN erfolgreich verbunden wurde, bleibt der Setup-Hotspot aus und das Setup wird dauerhaft abgeschlossen. Verbinde dein Handy oder deinen Laptop dann mit demselben Heim-WLAN und öffne `http://autodarts-pi.local` oder die IP-Adresse des Pi.
 9. Wenn WLAN-Name oder Passwort falsch sind oder keine Verbindung zustande kommt, startet der Hotspot `Autodarts-Setup` automatisch wieder. Verbinde dich erneut damit, öffne `http://auto.setup.go` und korrigiere die Daten.
 10. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschließen` zusätzlich manuell gedrückt werden, falls die automatische Übernahme noch nicht erfolgt ist.
-11. Danach startet der Kiosk auf Autodarts Play.
+11. Danach startet der Kiosk auf einer lokalen Autodarts-Statusseite. Sobald die Autodarts-Installation und der lokale Konfigurationsdienst bereit sind, leitet der Kiosk automatisch zum Autodarts-Konfigurationsmodus weiter.
 
 Nach einem erfolgreichen Setup merkt sich Autodarts Pi OS den Zustand `configured`. Ein späterer Internet- oder WLAN-Ausfall startet den Setup-Hotspot dann nicht automatisch erneut.
+
+Hinweis: Bei erfolgreicher WLAN-Uebernahme startet der Pi automatisch neu, damit der Kiosk danach mit dem finalen Netzwerkzustand und dem lokalen Autodarts-Konfigurationsmodus startet.
 
 ### Variante B: Einrichtung per Netzwerkkabel
 
@@ -153,7 +155,7 @@ Falls `.local` im Netzwerk nicht auflöst, die IP aus dem Router verwenden:
 http://<pi-ip>
 ```
 
-WLAN kann in diesem Fall leer bleiben. Wenn Ethernet verbunden ist, wird das Setup beim Speichern automatisch dauerhaft abgeschlossen. Nach einem Neustart startet dann Autodarts Play statt der Setup-Seite.
+WLAN kann in diesem Fall leer bleiben. Wenn Ethernet verbunden ist, wird das Setup beim Speichern automatisch dauerhaft abgeschlossen. Danach startet der Kiosk auf der lokalen Autodarts-Statusseite und wartet dort auf den Autodarts-Konfigurationsmodus.
 
 ### Variante C: Einrichtung direkt am Monitor
 
@@ -239,9 +241,13 @@ setup_hotspot_ssid = "Autodarts-Setup"
 setup_hotspot_password = "autodarts"
 setup_hotspot_address = "10.42.0.1/24"
 setup_hotspot_host = "auto.setup.go"
+reboot_after_wifi = true
 kiosk_enabled = true
 play_url = "https://play.autodarts.io"
-kiosk_url = "https://play.autodarts.io"
+kiosk_url = "http://localhost/kiosk"
+autodarts_local_url = "http://localhost:3180"
+autodarts_config_url = "http://localhost:3180"
+autodarts_fallback_url = "https://play.autodarts.io"
 ```
 
 ## Projektstruktur

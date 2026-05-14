@@ -22,6 +22,14 @@ config_bool() {
   awk -F '=' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
 }
 
+config_bool_default() {
+  local key="$1"
+  local fallback="$2"
+  local value
+  value="$(config_bool "$key")"
+  echo "${value:-$fallback}"
+}
+
 credential_string() {
   local key="$1"
   if [[ -f "$WIFI_CREDENTIALS" ]] && command -v python3 >/dev/null 2>&1; then
@@ -230,7 +238,14 @@ apply_pending_wifi() {
     echo "$(date -Is) WiFi connected to '$ssid'"
     mark_configured
     stop_hotspot
-    write_wifi_status "ok" "WLAN wurde verbunden. Verbinde dein Handy jetzt mit demselben Netzwerk und oeffne http://autodarts-pi.local oder die angezeigte IP-Adresse." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")" "$assigned_ip"
+    write_wifi_status "ok" "WLAN wurde verbunden. Das System startet jetzt neu. Verbinde dein Handy danach mit demselben Netzwerk und oeffne http://autodarts-pi.local oder die angezeigte IP-Adresse." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")" "$assigned_ip"
+    rm -f "$tmp_stdout" "$tmp_stderr" "$WIFI_APPLY_REQUEST"
+    if [[ "$(config_bool_default reboot_after_wifi true)" != "false" ]]; then
+      echo "$(date -Is) rebooting after successful WiFi handoff"
+      sync || true
+      systemctl reboot --no-wall || reboot
+    fi
+    return 0
   else
     echo "$(date -Is) WiFi connection failed for '$ssid' with code $code"
     write_wifi_status "failed" "WLAN konnte nicht verbunden werden. Pruefe WLAN-Name und Passwort. Der Setup-Hotspot wird wieder gestartet." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"

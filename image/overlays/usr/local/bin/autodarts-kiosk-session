@@ -21,13 +21,20 @@ if [[ -z "$BROWSER" ]]; then
   exit 20
 fi
 
+CHROME_USER_DIR="$HOME/.config/chromium-kiosk"
+CHROME_CACHE_DIR="$HOME/.cache/chromium-kiosk"
+mkdir -p "$CHROME_USER_DIR" "$CHROME_CACHE_DIR"
+
 while true; do
   "$BROWSER" \
     --kiosk "$URL" \
+    --user-data-dir="$CHROME_USER_DIR" \
+    --disk-cache-dir="$CHROME_CACHE_DIR" \
     --no-first-run \
     --disable-infobars \
     --disable-session-crashed-bubble \
     --disable-features=TranslateUI \
+    --disable-gpu \
     --autoplay-policy=no-user-gesture-required \
     --noerrdialogs \
     --check-for-update-interval=31536000 \
