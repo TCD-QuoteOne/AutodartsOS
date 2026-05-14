@@ -21,6 +21,22 @@ config_bool() {
   awk -F '=' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
 }
 
+set_config_bool() {
+  local key="$1"
+  local value="$2"
+  if grep -qE "^${key}[[:space:]]*=" "$CONFIG_FILE" 2>/dev/null; then
+    sed -i -E "s|^${key}[[:space:]]*=.*|${key} = ${value}|" "$CONFIG_FILE"
+  else
+    printf '%s = %s\n' "$key" "$value" >> "$CONFIG_FILE"
+  fi
+}
+
+mark_configured() {
+  mkdir -p "$(dirname "$SETUP_STATE_FILE")"
+  set_config_bool setup_mode false
+  echo "configured" > "$SETUP_STATE_FILE"
+}
+
 wifi_device() {
   nmcli -t -f DEVICE,TYPE device status | awk -F ':' '$2 == "wifi" {print $1; exit}'
 }
@@ -191,6 +207,8 @@ apply_pending_wifi() {
   if [[ "$code" -eq 0 ]]; then
     assigned_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
     echo "$(date -Is) WiFi connected to '$ssid'"
+    mark_configured
+    stop_hotspot
     write_wifi_status "ok" "WLAN wurde verbunden. Verbinde dein Handy jetzt mit demselben Netzwerk und oeffne http://autodarts-pi.local oder die angezeigte IP-Adresse." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")" "$assigned_ip"
   else
     echo "$(date -Is) WiFi connection failed for '$ssid' with code $code"

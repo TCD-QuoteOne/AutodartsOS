@@ -125,6 +125,14 @@ def write_setup_state(value):
     SETUP_STATE.write_text(value + "\n", encoding="utf-8")
 
 
+def mark_setup_configured(config, status, message):
+    config["setup_mode"] = "false"
+    write_config(config)
+    write_setup_state("configured")
+    status["finish"] = {"state": "ok", "message": message}
+    write_status(status)
+
+
 def wifi_status():
     code, stdout, stderr = run_command(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])
     return {
@@ -276,22 +284,38 @@ class Handler(BaseHTTPRequestHandler):
                 config["wifi_country"] = wifi_country
                 write_config(config)
                 setup_status = read_status()
-                setup_status["wifi"] = {
-                    "state": "pending",
-                    "message": (
-                        "WLAN-Daten gespeichert. Der Setup-Hotspot wird kurz deaktiviert, "
-                        "die Verbindung wird getestet und bei Fehler automatisch wieder gestartet."
-                    ),
-                    "ssid": wifi_ssid,
-                }
+                if effective_wifi_password:
+                    setup_status["wifi"] = {
+                        "state": "pending",
+                        "message": (
+                            "WLAN-Daten gespeichert. Der Setup-Hotspot wird kurz deaktiviert, "
+                            "die Verbindung wird getestet und bei Erfolg dauerhaft gespeichert."
+                        ),
+                        "ssid": wifi_ssid,
+                    }
+                else:
+                    setup_status["wifi"] = {
+                        "state": "failed",
+                        "message": "Es wurde kein WLAN-Passwort gespeichert. Trage das Passwort ein und speichere erneut.",
+                        "ssid": wifi_ssid,
+                    }
                 write_status(setup_status)
-                WIFI_APPLY_REQUEST.parent.mkdir(parents=True, exist_ok=True)
-                WIFI_APPLY_REQUEST.write_text("pending\n", encoding="utf-8")
+                if effective_wifi_password:
+                    WIFI_APPLY_REQUEST.parent.mkdir(parents=True, exist_ok=True)
+                    WIFI_APPLY_REQUEST.write_text("pending\n", encoding="utf-8")
             else:
                 setup_status = read_status()
                 setup_status["wifi"] = {"state": "skipped", "message": "WLAN wurde uebersprungen."}
                 write_status(setup_status)
             write_config(config)
+            current_network = network_status()
+            if not wifi_ssid and current_network["online"]:
+                setup_status = read_status()
+                mark_setup_configured(
+                    config,
+                    setup_status,
+                    "Setup wurde ueber Ethernet gespeichert und abgeschlossen. Nach einem Neustart startet Autodarts Play.",
+                )
             redirect(self, "/setup?saved=1")
             return
 
@@ -312,10 +336,7 @@ class Handler(BaseHTTPRequestHandler):
                 redirect(self, "/setup?finish=network-missing")
                 return
             status["finish"] = {"state": "ok", "message": "Setup abgeschlossen."}
-            write_status(status)
-            config["setup_mode"] = "false"
-            write_config(config)
-            write_setup_state("configured")
+            mark_setup_configured(config, status, "Setup abgeschlossen.")
             redirect(self, config.get("play_url", "https://play.autodarts.io"))
             return
 
@@ -516,7 +537,7 @@ class Handler(BaseHTTPRequestHandler):
                 wifi_panel = f"""<section class="panel"><h2>WLAN-Status</h2><pre>{html.escape(current_wifi.get("stdout", ""))}</pre><pre>{html.escape(current_wifi.get("stderr", ""))}</pre></section>"""
 
             config_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in public_config(config).items())
-            content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort und Hostname. WLAN ist optional, wenn ein Netzwerkkabel verbunden ist.</p>
+            content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort und Hostname. Mit Netzwerkkabel wird das Setup beim Speichern abgeschlossen. Mit WLAN passiert das nach erfolgreichem Verbindungstest.</p>
 {net_panel}
 {wifi_panel}
 <form method="post" action="/setup/save">
@@ -526,18 +547,18 @@ class Handler(BaseHTTPRequestHandler):
   <label for="setup_admin_password">Neues Setup-Passwort</label>
   <input id="setup_admin_password" name="setup_admin_password" type="password" placeholder="leer lassen, wenn unveraendert">
   <h2>WLAN</h2>
-  <p class="muted">Leer lassen, wenn du Ethernet verwendest.</p>
+  <p class="muted">Leer lassen, wenn du Ethernet verwendest. Dann wird das Setup beim Speichern dauerhaft abgeschlossen.</p>
   <label for="wifi_ssid">WLAN-Name</label>
   <input id="wifi_ssid" name="wifi_ssid" value="{html.escape(config.get("wifi_ssid", ""))}">
   <label for="wifi_password">WLAN-Passwort</label>
   <input id="wifi_password" name="wifi_password" type="password" placeholder="leer lassen, um gespeichertes Passwort zu behalten">
   <label for="wifi_country">Land</label>
   <input id="wifi_country" name="wifi_country" value="{html.escape(config.get("wifi_country", "DE"))}">
-  <button type="submit">Speichern</button>
+  <button type="submit">Speichern und anwenden</button>
 </form>
 <form method="post" action="/setup/finish">
   <h2>Setup abschliessen</h2>
-  <p class="muted">Das funktioniert mit Netzwerkkabel oder WLAN. Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
+  <p class="muted">Falls das Setup noch nicht automatisch abgeschlossen wurde, kannst du es hier manuell abschliessen. Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
   <button type="submit">Setup abschliessen</button>
 </form>
 <section>
