@@ -146,9 +146,10 @@ def network_status():
         if len(line.split(":")) >= 3
     )
     wifi_connected = any(
-        line.split(":")[1:3] == ["wifi", "connected"]
+        len(line.split(":")) >= 4
+        and line.split(":")[1:3] == ["wifi", "connected"]
+        and line.split(":")[3] != "Autodarts-Setup"
         for line in device_stdout.splitlines()
-        if len(line.split(":")) >= 3
     )
     setup_hotspot_active = any(
         len(line.split(":")) >= 4 and line.split(":")[3] == "Autodarts-Setup"
@@ -268,8 +269,10 @@ class Handler(BaseHTTPRequestHandler):
                 config["setup_admin_password"] = admin_password
                 reset_session_token()
             if wifi_ssid:
+                previous_wifi_password = config.get("wifi_password", "")
+                effective_wifi_password = wifi_password if wifi_password else previous_wifi_password
                 config["wifi_ssid"] = wifi_ssid
-                config["wifi_password"] = wifi_password
+                config["wifi_password"] = effective_wifi_password
                 config["wifi_country"] = wifi_country
                 write_config(config)
                 setup_status = read_status()
@@ -527,7 +530,7 @@ class Handler(BaseHTTPRequestHandler):
   <label for="wifi_ssid">WLAN-Name</label>
   <input id="wifi_ssid" name="wifi_ssid" value="{html.escape(config.get("wifi_ssid", ""))}">
   <label for="wifi_password">WLAN-Passwort</label>
-  <input id="wifi_password" name="wifi_password" type="password">
+  <input id="wifi_password" name="wifi_password" type="password" placeholder="leer lassen, um gespeichertes Passwort zu behalten">
   <label for="wifi_country">Land</label>
   <input id="wifi_country" name="wifi_country" value="{html.escape(config.get("wifi_country", "DE"))}">
   <button type="submit">Speichern</button>
