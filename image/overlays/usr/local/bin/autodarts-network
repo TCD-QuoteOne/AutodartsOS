@@ -4,6 +4,7 @@ set -euo pipefail
 CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
 LOG_FILE="/var/log/autodarts-network.log"
 HOTSPOT_NAME="Autodarts-Setup"
+WIFI_CLIENT_NAME="Autodarts-WiFi"
 SETUP_STATE_FILE="/var/lib/autodarts-pi-os/setup.state"
 STATUS_FILE="/var/lib/autodarts-pi-os/setup-status.json"
 WIFI_APPLY_REQUEST="/var/lib/autodarts-pi-os/wifi-apply.request"
@@ -124,7 +125,7 @@ EOF
 }
 
 apply_pending_wifi() {
-  local device ssid password country tmp_stdout tmp_stderr code assigned_ip
+  local device ssid password country tmp_stdout tmp_stderr code rc assigned_ip
 
   [[ -f "$WIFI_APPLY_REQUEST" ]] || return 1
 
@@ -154,6 +155,8 @@ apply_pending_wifi() {
   sleep 3
   rfkill unblock wifi || true
   nmcli radio wifi on || true
+  nmcli device set "$device" managed yes || true
+  nmcli device disconnect "$device" >/dev/null 2>&1 || true
   nmcli general hostname "$(config_string hostname || true)" >/dev/null 2>&1 || true
   iw reg set "$country" >/dev/null 2>&1 || true
   nmcli device wifi rescan ifname "$device" >/dev/null 2>&1 || nmcli device wifi rescan >/dev/null 2>&1 || true
@@ -161,13 +164,27 @@ apply_pending_wifi() {
 
   tmp_stdout="$(mktemp)"
   tmp_stderr="$(mktemp)"
+  nmcli connection delete "$WIFI_CLIENT_NAME" >/dev/null 2>&1 || true
   set +e
-  if [[ -n "$password" ]]; then
-    nmcli --wait 75 dev wifi connect "$ssid" password "$password" ifname "$device" >"$tmp_stdout" 2>"$tmp_stderr"
-  else
-    nmcli --wait 75 dev wifi connect "$ssid" ifname "$device" >"$tmp_stdout" 2>"$tmp_stderr"
-  fi
+  nmcli connection add type wifi ifname "$device" con-name "$WIFI_CLIENT_NAME" ssid "$ssid" >"$tmp_stdout" 2>"$tmp_stderr"
   code=$?
+  if [[ -n "$password" ]]; then
+    nmcli connection modify "$WIFI_CLIENT_NAME" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$password" >>"$tmp_stdout" 2>>"$tmp_stderr"
+    rc=$?
+    [[ "$code" -eq 0 ]] && code="$rc"
+  else
+    nmcli connection modify "$WIFI_CLIENT_NAME" wifi-sec.key-mgmt "" >>"$tmp_stdout" 2>>"$tmp_stderr"
+    rc=$?
+    [[ "$code" -eq 0 ]] && code="$rc"
+  fi
+  if [[ "$code" -eq 0 ]]; then
+    nmcli connection modify "$WIFI_CLIENT_NAME" connection.autoconnect yes ipv4.method auto ipv6.method auto >>"$tmp_stdout" 2>>"$tmp_stderr"
+    code=$?
+  fi
+  if [[ "$code" -eq 0 ]]; then
+    nmcli --wait 75 connection up "$WIFI_CLIENT_NAME" ifname "$device" >>"$tmp_stdout" 2>>"$tmp_stderr"
+    code=$?
+  fi
   set -e
 
   if [[ "$code" -eq 0 ]]; then
@@ -177,6 +194,8 @@ apply_pending_wifi() {
   else
     echo "$(date -Is) WiFi connection failed for '$ssid' with code $code"
     write_wifi_status "failed" "WLAN konnte nicht verbunden werden. Pruefe WLAN-Name und Passwort. Der Setup-Hotspot wird wieder gestartet." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
+    nmcli connection down "$WIFI_CLIENT_NAME" >/dev/null 2>&1 || true
+    nmcli connection delete "$WIFI_CLIENT_NAME" >/dev/null 2>&1 || true
   fi
 
   rm -f "$tmp_stdout" "$tmp_stderr" "$WIFI_APPLY_REQUEST"

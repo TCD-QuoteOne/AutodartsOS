@@ -9,6 +9,8 @@ User=autodarts
 Group=autodarts
 Environment=HOME=/home/autodarts
 Environment=XDG_RUNTIME_DIR=/tmp/runtime-autodarts
+ExecStartPre=+/usr/bin/touch /var/log/autodarts-kiosk.log
+ExecStartPre=+/usr/bin/chown autodarts:autodarts /var/log/autodarts-kiosk.log
 ExecStart=/usr/local/bin/autodarts-kiosk
 Restart=always
 RestartSec=5
