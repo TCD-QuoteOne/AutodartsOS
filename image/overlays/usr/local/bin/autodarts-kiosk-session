@@ -4,6 +4,11 @@ set -euo pipefail
 URL="${1:-https://play.autodarts.io}"
 echo "Starting kiosk session for $URL"
 
+if [[ -z "${AUTODARTS_DBUS_SESSION:-}" ]] && command -v dbus-run-session >/dev/null 2>&1; then
+  export AUTODARTS_DBUS_SESSION=1
+  exec dbus-run-session -- "$0" "$URL"
+fi
+
 xset s off || true
 xset -dpms || true
 xset s noblank || true

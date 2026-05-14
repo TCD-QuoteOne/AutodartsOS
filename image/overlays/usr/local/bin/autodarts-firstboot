@@ -45,9 +45,10 @@ echo "autodarts:autodarts" | chpasswd
 install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.bash_profile
 install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.profile
 touch /home/autodarts/.hushlogin
-chown autodarts:autodarts /home/autodarts/.bash_profile || true
-chown autodarts:autodarts /home/autodarts/.profile || true
-chown autodarts:autodarts /home/autodarts/.hushlogin || true
+install -d -m 0700 -o autodarts -g autodarts /home/autodarts/.cache
+install -d -m 0700 -o autodarts -g autodarts /home/autodarts/.config
+install -d -m 0700 -o autodarts -g autodarts /home/autodarts/.local/state/autodarts-pi-os
+chown -R autodarts:autodarts /home/autodarts || true
 
 if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
   systemctl enable NetworkManager.service || true

@@ -11,6 +11,7 @@ x11-xserver-utils
 xinit
 openbox
 chromium-browser
+dbus-x11
 unclutter
 fbi
 chafa

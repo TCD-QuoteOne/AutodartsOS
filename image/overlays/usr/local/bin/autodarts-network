@@ -141,6 +141,13 @@ apply_pending_wifi() {
     return 0
   fi
 
+  if [[ -z "$password" ]]; then
+    echo "$(date -Is) WiFi apply requested without password for SSID '$ssid'"
+    rm -f "$WIFI_APPLY_REQUEST"
+    write_wifi_status "failed" "Es wurde kein WLAN-Passwort gespeichert. Trage das Passwort erneut ein und speichere noch einmal." "$ssid"
+    return 0
+  fi
+
   device="$(wifi_device)"
   if [[ -z "$device" ]]; then
     echo "$(date -Is) WiFi apply requested, but no WiFi device exists"
@@ -168,15 +175,9 @@ apply_pending_wifi() {
   set +e
   nmcli connection add type wifi ifname "$device" con-name "$WIFI_CLIENT_NAME" ssid "$ssid" >"$tmp_stdout" 2>"$tmp_stderr"
   code=$?
-  if [[ -n "$password" ]]; then
-    nmcli connection modify "$WIFI_CLIENT_NAME" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$password" >>"$tmp_stdout" 2>>"$tmp_stderr"
-    rc=$?
-    [[ "$code" -eq 0 ]] && code="$rc"
-  else
-    nmcli connection modify "$WIFI_CLIENT_NAME" wifi-sec.key-mgmt "" >>"$tmp_stdout" 2>>"$tmp_stderr"
-    rc=$?
-    [[ "$code" -eq 0 ]] && code="$rc"
-  fi
+  nmcli connection modify "$WIFI_CLIENT_NAME" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$password" >>"$tmp_stdout" 2>>"$tmp_stderr"
+  rc=$?
+  [[ "$code" -eq 0 ]] && code="$rc"
   if [[ "$code" -eq 0 ]]; then
     nmcli connection modify "$WIFI_CLIENT_NAME" connection.autoconnect yes ipv4.method auto ipv6.method auto >>"$tmp_stdout" 2>>"$tmp_stderr"
     code=$?
