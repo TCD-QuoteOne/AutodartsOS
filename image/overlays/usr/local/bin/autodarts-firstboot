@@ -7,9 +7,12 @@ SEED_CONFIG="/boot/firmware/autodarts-config.toml"
 CONFIG_FILE="$CONFIG_DIR/config.toml"
 SETUP_STATE="$STATE_DIR/setup.state"
 STATUS_FILE="$STATE_DIR/setup-status.json"
+FIRSTBOOT_LOG="/var/log/autodarts-firstboot.log"
+IMAGER_FIRSTRUN_MARKER="$STATE_DIR/imager-firstrun.attempted"
 SEED_USED=false
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+touch "$FIRSTBOOT_LOG"
 
 if [[ -f "$SEED_CONFIG" ]]; then
   cp "$SEED_CONFIG" "$CONFIG_FILE"
@@ -47,9 +50,53 @@ json_string() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g' | tr '\n' ' '
 }
 
+write_firstboot_status() {
+  local state="$1"
+  local message="$2"
+  mkdir -p "$(dirname "$STATUS_FILE")"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "firstboot": {
+    "state": "$(json_string "$state")",
+    "message": "$(json_string "$message")"
+  }
+}
+EOF
+}
+
+run_imager_firstrun_fallback() {
+  local rc firstrun
+  firstrun=""
+  for candidate in /boot/firmware/firstrun.sh /boot/firstrun.sh; do
+    if [[ -f "$candidate" ]]; then
+      firstrun="$candidate"
+      break
+    fi
+  done
+  [[ -n "$firstrun" ]] || return 0
+  [[ ! -f "$IMAGER_FIRSTRUN_MARKER" ]] || return 0
+
+  echo "$(date -Is) Raspberry Pi Imager firstrun.sh found; running compatibility fallback." >> "$FIRSTBOOT_LOG"
+  touch "$IMAGER_FIRSTRUN_MARKER"
+  chmod +x "$firstrun" || true
+  set +e
+  bash "$firstrun" >> "$FIRSTBOOT_LOG" 2>&1
+  rc=$?
+  set -e
+
+  if [[ "$rc" -eq 0 ]]; then
+    write_firstboot_status "ok" "Raspberry Pi Imager firstrun.sh wurde ausgefuehrt."
+  else
+    write_firstboot_status "warning" "Raspberry Pi Imager firstrun.sh konnte nicht erfolgreich ausgefuehrt werden. Autodarts Pi OS startet den normalen Setup-Fallback."
+    echo "$(date -Is) Raspberry Pi Imager firstrun.sh failed with code $rc." >> "$FIRSTBOOT_LOG"
+  fi
+}
+
 if [[ ! -f "$SETUP_STATE" ]]; then
   echo "factory" > "$SETUP_STATE"
 fi
+
+run_imager_firstrun_fallback
 
 existing_groups() {
   local groups=()
@@ -87,6 +134,11 @@ chown -R autodarts:autodarts /home/autodarts || true
 if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
   systemctl enable NetworkManager.service || true
   systemctl start NetworkManager.service || true
+fi
+
+if [[ -f /boot/firmware/ssh || -f /boot/firmware/ssh.txt || -f /boot/ssh || -f /boot/ssh.txt ]]; then
+  systemctl enable ssh.service >/dev/null 2>&1 || systemctl enable ssh >/dev/null 2>&1 || true
+  systemctl start ssh.service >/dev/null 2>&1 || systemctl start ssh >/dev/null 2>&1 || true
 fi
 
 CURRENT_HOSTNAME="$(hostnamectl --static status 2>/dev/null || hostname 2>/dev/null || true)"

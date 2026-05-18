@@ -2,6 +2,8 @@ plymouth
 plymouth-themes
 curl
 ca-certificates
+raspberrypi-sys-mods
+openssh-server
 network-manager
 dnsmasq-base
 avahi-daemon
