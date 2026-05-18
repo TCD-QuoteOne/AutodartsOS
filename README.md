@@ -100,6 +100,14 @@ Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. 
 
 Autodarts Pi OS ist mit den normalen Raspberry-Pi-Imager-Anpassungen kompatibel. Du kannst im Imager also bereits WLAN, Hostname und SSH hinterlegen. Beim ersten Boot uebernimmt Raspberry Pi OS diese Werte wie beim Standard-Image. Autodarts Pi OS fuehrt eine vorhandene Imager-`firstrun.sh` notfalls selbst aus, aktiviert SSH bei vorhandener `ssh`/`ssh.txt`-Bootdatei und erkennt anschliessend eine funktionierende vorkonfigurierte Netzwerkverbindung. Dann wird der lokale Setup-Modus automatisch abgeschlossen.
 
+Wichtig: Wenn du im Imager direkt `Use custom` und danach die Autodarts-Pi-OS-ZIP/IMG waehlst, sind die Anpassungen ausgegraut. Das ist ein Imager-Metadaten-Thema. Erzeuge stattdessen ein Manifest:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\create-imager-manifest.ps1 -ImagePath "C:\Pfad\zu\AutodartsPiOS-lite.zip"
+```
+
+Dann die erzeugte Datei `imager\autodarts-pi-os-local.rpi-imager-manifest` mit dem Raspberry Pi Imager oeffnen. Danach erscheint Autodarts Pi OS in der OS-Liste und WLAN, Hostname und SSH koennen gesetzt werden.
+
 Wenn die im Imager eingetragenen WLAN-Daten falsch sind oder das WLAN nicht erreichbar ist, bleibt Autodarts Pi OS im Factory-Setup und startet den Hotspot `Autodarts-Setup`. Dann kannst du die Daten wie unten beschrieben ueber `http://auto.setup.go` korrigieren.
 
 ### Variante A: Einrichtung per Handy oder Laptop über Setup-Hotspot
