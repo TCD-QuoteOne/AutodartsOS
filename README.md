@@ -106,7 +106,15 @@ Wichtig: Wenn du im Imager direkt `Use custom` und danach die Autodarts-Pi-OS-ZI
 powershell -ExecutionPolicy Bypass -File .\tools\create-imager-manifest.ps1 -ImagePath "C:\Pfad\zu\AutodartsPiOS-lite.zip"
 ```
 
-Dann die erzeugte Datei `imager\autodarts-pi-os-local.rpi-imager-manifest` mit dem Raspberry Pi Imager oeffnen. Danach erscheint Autodarts Pi OS in der OS-Liste und WLAN, Hostname und SSH koennen gesetzt werden.
+Dann:
+
+1. Raspberry Pi Imager schliessen.
+2. Die erzeugte Datei `imager\autodarts-pi-os-local.rpi-imager-manifest` per Doppelklick oeffnen.
+3. Falls Windows fragt, mit `Raspberry Pi Imager` oeffnen.
+4. Im Imager `Autodarts Pi OS Lite` aus der OS-Liste waehlen.
+5. Erst danach Speicherkarte waehlen und unter `Anpassung` WLAN, Hostname und SSH setzen.
+
+Nicht die ZIP direkt ueber `Use custom` auswaehlen. Dann fehlen die Metadaten und die Anpassungen bleiben ausgegraut.
 
 Wenn die im Imager eingetragenen WLAN-Daten falsch sind oder das WLAN nicht erreichbar ist, bleibt Autodarts Pi OS im Factory-Setup und startet den Hotspot `Autodarts-Setup`. Dann kannst du die Daten wie unten beschrieben ueber `http://auto.setup.go` korrigieren.
 
@@ -147,7 +155,7 @@ autodarts
 8. Wenn das WLAN erfolgreich verbunden wurde, bleibt der Setup-Hotspot aus und das Setup wird dauerhaft abgeschlossen. Verbinde dein Handy oder deinen Laptop dann mit demselben Heim-WLAN und öffne `http://autodarts-pi.local` oder die IP-Adresse des Pi.
 9. Wenn WLAN-Name oder Passwort falsch sind oder keine Verbindung zustande kommt, startet der Hotspot `Autodarts-Setup` automatisch wieder. Verbinde dich erneut damit, öffne `http://auto.setup.go` und korrigiere die Daten.
 10. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschließen` zusätzlich manuell gedrückt werden, falls die automatische Übernahme noch nicht erfolgt ist.
-11. Danach startet der Kiosk auf einer lokalen Autodarts-Statusseite. Sobald die Autodarts-Installation und der lokale Konfigurationsdienst bereit sind, leitet der Kiosk automatisch zum Autodarts-Konfigurationsmodus weiter.
+11. Danach startet der Kiosk auf einer lokalen Autodarts-Pi-OS-Portal-Seite. Diese Seite zeigt IP, Dienste und Installationsstatus. Sobald der lokale Autodarts-Dienst bereit ist, erscheint dort der Button `Kameras / Autodarts oeffnen`.
 
 Nach einem erfolgreichen Setup merkt sich Autodarts Pi OS den Zustand `configured`. Ein späterer Internet- oder WLAN-Ausfall startet den Setup-Hotspot dann nicht automatisch erneut.
 
@@ -169,7 +177,7 @@ Falls `.local` im Netzwerk nicht auflöst, die IP aus dem Router verwenden:
 http://<pi-ip>
 ```
 
-WLAN kann in diesem Fall leer bleiben. Wenn Ethernet verbunden ist, wird das Setup beim Speichern automatisch dauerhaft abgeschlossen. Danach startet der Kiosk auf der lokalen Autodarts-Statusseite und wartet dort auf den Autodarts-Konfigurationsmodus.
+WLAN kann in diesem Fall leer bleiben. Wenn Ethernet verbunden ist, wird das Setup beim Speichern automatisch dauerhaft abgeschlossen. Danach startet der Kiosk auf der lokalen Autodarts-Pi-OS-Portal-Seite.
 
 ### Variante C: Einrichtung direkt am Monitor
 
@@ -195,7 +203,23 @@ oder per IP-Adresse:
 http://<pi-ip>
 ```
 
-Die Startseite führt dann in den Adminbereich. Dort können Status, Dienste, Logs und Setup-Aktionen geöffnet werden.
+Die Startseite fuehrt dann in das lokale Portal. Dort sind IP, Dienste, Installationsstatus und der Button zur Autodarts-/Kamera-Einrichtung sichtbar. Der Adminbereich bleibt erreichbar.
+
+Direkte Adressen:
+
+```text
+http://autodarts-pi.local/kiosk
+http://autodarts-pi.local/admin
+http://autodarts-pi.local/health.json
+```
+
+Wenn `.local` nicht aufloest, verwende die IP-Adresse des Pi:
+
+```text
+http://<pi-ip>/kiosk
+```
+
+Am angeschlossenen Bildschirm wird dieselbe Portal-Seite angezeigt. Sie bleibt sichtbar, auch wenn Autodarts noch installiert oder noch nicht erreichbar ist.
 
 ### Recovery-Hotspot
 

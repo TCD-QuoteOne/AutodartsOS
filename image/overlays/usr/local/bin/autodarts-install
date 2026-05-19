@@ -6,6 +6,7 @@ STATE_DIR="/var/lib/autodarts-pi-os"
 MARKER="$STATE_DIR/autodarts-install.done"
 LOG_FILE="/var/log/autodarts-install.log"
 DEFAULT_INSTALLER_URL="https://get.autodarts.io"
+LOCAL_INSTALLER="/usr/share/autodarts-pi-os/autodarts-installer.sh"
 
 config_string() {
   local key="$1"
@@ -43,8 +44,13 @@ while ! network_online; do
   sleep 5
 done
 
-echo "Downloading Autodarts installer from $INSTALLER_URL" | tee -a "$LOG_FILE"
-curl --fail --location --silent --show-error --retry 10 --retry-delay 5 "$INSTALLER_URL" --output "$INSTALLER"
+if [[ -f "$LOCAL_INSTALLER" ]]; then
+  echo "Using bundled Autodarts installer from $LOCAL_INSTALLER" | tee -a "$LOG_FILE"
+  cp "$LOCAL_INSTALLER" "$INSTALLER"
+else
+  echo "Downloading Autodarts installer from $INSTALLER_URL" | tee -a "$LOG_FILE"
+  curl --fail --location --silent --show-error --retry 10 --retry-delay 5 "$INSTALLER_URL" --output "$INSTALLER"
+fi
 chmod +x "$INSTALLER"
 
 if [[ "$VERSION" == "latest" ]]; then

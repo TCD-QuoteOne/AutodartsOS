@@ -318,8 +318,9 @@ def redirect(handler, target):
     handler.end_headers()
 
 
-def render_kiosk_wait_page(config):
+def render_kiosk_portal(config):
     net = network_status()
+    autodarts_url = detect_autodarts_url(config)
     services = {
         "Autodarts Install": service_state("autodarts-install.service"),
         "Autodarts Runtime": service_state("autodarts-runtime.service"),
@@ -333,14 +334,22 @@ def render_kiosk_wait_page(config):
     install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
     log = html.escape(tail_file(INSTALL_LOG, "Noch kein Installationslog vorhanden.", 6000))
     fallback = html.escape(config.get("autodarts_fallback_url", config.get("play_url", "https://play.autodarts.io")))
+    if autodarts_url:
+        autodarts_action = f"""<a class="button" href="/autodarts">Kameras / Autodarts oeffnen</a>
+  <p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong></p>"""
+    else:
+        autodarts_action = """<button type="button" disabled>Autodarts noch nicht bereit</button>
+  <p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht erreichbar. Diese Seite aktualisiert sich automatisch.</p>"""
     content = f"""<section class="panel">
-  <h2>Autodarts wird vorbereitet</h2>
-  <p>Das Geraet ist im Netzwerk erreichbar. Autodarts Pi OS wartet jetzt, bis die Autodarts-Installation und der lokale Konfigurationsdienst bereit sind.</p>
+  <h2>Autodarts Pi OS ist bereit</h2>
+  <p>Diese lokale Seite bleibt auf Bildschirm und Handy erreichbar. Von hier aus startest du die Autodarts- und Kamera-Einrichtung, sobald der lokale Dienst bereit ist.</p>
   <p>Zugewiesene IP: <strong>{primary_ip}</strong></p>
   <p>Installationsstatus: <strong>{html.escape(install_state)}</strong></p>
   <p>Gepruefte lokale Ziele: <strong>{candidates}</strong></p>
-  <a class="button" href="/kiosk">Neu pruefen</a>
+  {autodarts_action}
+  <a class="button" href="/kiosk">Status aktualisieren</a>
   <a class="button" href="/admin">Admin</a>
+  <a class="button" href="/setup">Netzwerk-Setup</a>
   <a class="button" href="{fallback}">Autodarts Play</a>
 </section>
 <section><h2>Dienste</h2><table>{rows}</table></section>
@@ -484,23 +493,27 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         config = read_config()
         if path == "/":
-            redirect(self, "/admin" if read_setup_state() == "configured" else "/setup")
+            redirect(self, "/kiosk" if read_setup_state() == "configured" else "/setup")
             return
 
         if path == "/kiosk":
             if read_setup_state() != "configured" or str(config.get("setup_mode", "true")).lower() != "false":
                 redirect(self, "/setup")
                 return
-            autodarts_url = detect_autodarts_url(config)
-            if autodarts_url:
-                redirect(self, autodarts_url)
-                return
-            payload = render_kiosk_wait_page(config).encode("utf-8")
+            payload = render_kiosk_portal(config).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
+            return
+
+        if path in {"/autodarts", "/camera"}:
+            autodarts_url = detect_autodarts_url(config)
+            if autodarts_url:
+                redirect(self, autodarts_url)
+                return
+            redirect(self, "/kiosk")
             return
 
         if path == "/splash.png":

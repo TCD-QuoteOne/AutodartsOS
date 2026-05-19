@@ -34,6 +34,9 @@ mkdir -p "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os"
 
 cp -R "$ROOT_DIR/image/overlays/." "$STAGE_DIR/00-install/files/"
 cp "$ROOT_DIR/assets/boot/autodarts-pi-os-splash.png" "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/splash.png"
+if [[ -f "$ROOT_DIR/image/vendor/autodarts-installer.sh" ]]; then
+  cp "$ROOT_DIR/image/vendor/autodarts-installer.sh" "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh"
+fi
 rm -f "$STAGE_DIR/00-packages"
 cp "$ROOT_DIR/image/packages" "$STAGE_DIR/00-install/00-packages"
 
@@ -79,6 +82,9 @@ install -m 0644 files/usr/lib/sysusers.d/autodarts-pi-os.conf "${ROOTFS_DIR}/usr
 install -d "${ROOTFS_DIR}/usr/lib/tmpfiles.d"
 install -m 0644 files/usr/lib/tmpfiles.d/autodarts-pi-os.conf "${ROOTFS_DIR}/usr/lib/tmpfiles.d/autodarts-pi-os.conf"
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/autodarts-pi-os/splash.png"
+if [[ -f files/usr/share/autodarts-pi-os/autodarts-installer.sh ]]; then
+  install -m 0755 files/usr/share/autodarts-pi-os/autodarts-installer.sh "${ROOTFS_DIR}/usr/share/autodarts-pi-os/autodarts-installer.sh"
+fi
 install -d "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os"
 install -m 0644 files/usr/share/plymouth/themes/autodarts-pi-os/* "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/"
 install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/splash.png"
