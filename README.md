@@ -105,6 +105,47 @@ AutodartsPiOS-...-lite.rpi-imager-manifest
 
 Die Manifestdatei mit Raspberry Pi Imager oeffnen, dann `Autodarts Pi OS Lite` aus der OS-Liste waehlen. So sind WLAN, Hostname und SSH im Imager aktiv. Die ZIP direkt ueber `Use custom` auszuwaehlen bleibt technisch eingeschraenkt, weil dem Imager dann die Metadaten fehlen.
 
+### 6. GitHub-Release erstellen
+
+Nach einem erfolgreichen Build werden die Release-Dateien aus dem `deploy`-Ordner von `pi-gen` in ein GitHub-Release geladen. Relevant sind immer die Image-ZIP und die passende Raspberry-Pi-Imager-Manifestdatei.
+
+Beispiel fuer Version `v0.1.16`:
+
+```bash
+cd /opt/AutodartsOS
+git pull origin main
+
+VERSION="v0.1.16"
+DEPLOY_DIR="/opt/pi-gen/deploy"
+IMAGE_ZIP="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.zip | head -n 1)"
+MANIFEST_FILE="${IMAGE_ZIP%.zip}.rpi-imager-manifest"
+
+ls -lh "$IMAGE_ZIP" "$MANIFEST_FILE"
+```
+
+Wenn beide Dateien angezeigt werden, Release erstellen:
+
+```bash
+gh release create "$VERSION" \
+  "$IMAGE_ZIP" \
+  "$MANIFEST_FILE" \
+  --repo TCD-QuoteOne/AutodartsOS \
+  --title "Autodarts Pi OS $VERSION" \
+  --notes "Autodarts Pi OS Lite release. Open the .rpi-imager-manifest file with Raspberry Pi Imager to enable WiFi, hostname and SSH customisation."
+```
+
+Falls das Release schon existiert und nur neue Dateien hochgeladen werden sollen:
+
+```bash
+gh release upload "$VERSION" \
+  "$IMAGE_ZIP" \
+  "$MANIFEST_FILE" \
+  --repo TCD-QuoteOne/AutodartsOS \
+  --clobber
+```
+
+Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die ZIP direkt ueber `Use custom`.
+
 ## Geplanter Out-of-the-box-Ablauf
 
 1. Image auf microSD oder SSD flashen.
