@@ -91,12 +91,12 @@ Fuer einen kompletten Release-Build inklusive optional eingebettetem Autodarts-I
 cd /opt/AutodartsOS
 git pull origin main
 export PI_GEN_DIR="/opt/pi-gen"
-BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
+RELEASE_VERSION="v0.1.16" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
 ```
 
 BUNDLE_AUTODARTS_INSTALLER=true bettet den aktuellen Installer von `https://get.autodarts.io` in das Image ein. Die Autodarts-Installation selbst laeuft weiterhin beim ersten Boot auf dem Raspberry Pi, weil dort Hardware, Systemdienste und Architektur passen. Falls der Installer spaeter weitere Pakete oder Releases nachlaedt, braucht der Pi dafuer weiterhin Netzwerk.
 
-Danach liegen im `deploy`-Ordner von `pi-gen` zwei wichtige Dateien:
+`RELEASE_VERSION` sorgt dafuer, dass die Manifestdatei nicht auf den lokalen Build-Server-Pfad zeigt, sondern auf die spaetere GitHub-Release-URL der ZIP. Danach liegen im `deploy`-Ordner von `pi-gen` zwei wichtige Dateien:
 
 ```text
 AutodartsPiOS-...-lite.zip
@@ -119,11 +119,13 @@ VERSION="v0.1.16"
 DEPLOY_DIR="/opt/pi-gen/deploy"
 IMAGE_ZIP="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.zip | head -n 1)"
 MANIFEST_FILE="${IMAGE_ZIP%.zip}.rpi-imager-manifest"
+EXPECTED_URL="https://github.com/TCD-QuoteOne/AutodartsOS/releases/download/${VERSION}/$(basename "$IMAGE_ZIP")"
 
 ls -lh "$IMAGE_ZIP" "$MANIFEST_FILE"
+grep -F "\"url\": \"$EXPECTED_URL\"" "$MANIFEST_FILE"
 ```
 
-Wenn beide Dateien angezeigt werden, Release erstellen:
+Wenn beide Dateien angezeigt werden und `grep` die GitHub-URL findet, Release erstellen:
 
 ```bash
 gh release create "$VERSION" \
@@ -145,6 +147,15 @@ gh release upload "$VERSION" \
 ```
 
 Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die ZIP direkt ueber `Use custom`.
+
+Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt, wurde es ohne `RELEASE_VERSION` erzeugt. Dann vor dem Upload neu erzeugen:
+
+```bash
+"$PWD/tools/create-imager-manifest.sh" \
+  --image "$IMAGE_ZIP" \
+  --output "$MANIFEST_FILE" \
+  --url "$EXPECTED_URL"
+```
 
 ## Geplanter Out-of-the-box-Ablauf
 

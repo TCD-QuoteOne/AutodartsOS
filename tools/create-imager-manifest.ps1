@@ -8,7 +8,9 @@ param(
 
   [string]$Description = "Raspberry Pi OS Lite appliance image for Autodarts with setup hotspot, kiosk and first-boot customisation.",
 
-  [string]$IconUrl = "https://raw.githubusercontent.com/TCD-QuoteOne/AutodartsOS/main/assets/boot/autodarts-pi-os-splash.png"
+  [string]$IconUrl = "https://raw.githubusercontent.com/TCD-QuoteOne/AutodartsOS/main/assets/boot/autodarts-pi-os-splash.png",
+
+  [string]$ImageUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,7 +24,7 @@ if ($outputDir -and !(Test-Path -LiteralPath $outputDir)) {
 }
 
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedImage
-$imageUri = [System.Uri]::new($imageItem.FullName).AbsoluteUri
+$imageUri = if ($ImageUrl) { $ImageUrl } else { [System.Uri]::new($imageItem.FullName).AbsoluteUri }
 $releaseDate = Get-Date -Format "yyyy-MM-dd"
 
 $manifest = [ordered]@{

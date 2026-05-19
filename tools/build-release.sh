@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PI_GEN_DIR="${PI_GEN_DIR:-/opt/pi-gen}"
 BUNDLE_AUTODARTS_INSTALLER="${BUNDLE_AUTODARTS_INSTALLER:-true}"
+RELEASE_VERSION="${RELEASE_VERSION:-}"
+GITHUB_REPO="${GITHUB_REPO:-TCD-QuoteOne/AutodartsOS}"
 
 if [[ ! -d "$PI_GEN_DIR" ]]; then
   echo "PI_GEN_DIR does not exist: $PI_GEN_DIR" >&2
@@ -30,7 +32,12 @@ if [[ -z "$LATEST_IMAGE" ]]; then
 fi
 
 MANIFEST_PATH="${LATEST_IMAGE%.*}.rpi-imager-manifest"
-"$ROOT_DIR/tools/create-imager-manifest.sh" --image "$LATEST_IMAGE" --output "$MANIFEST_PATH"
+MANIFEST_ARGS=(--image "$LATEST_IMAGE" --output "$MANIFEST_PATH")
+if [[ -n "$RELEASE_VERSION" ]]; then
+  IMAGE_BASENAME="$(basename "$LATEST_IMAGE")"
+  MANIFEST_ARGS+=(--url "https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_VERSION}/${IMAGE_BASENAME}")
+fi
+"$ROOT_DIR/tools/create-imager-manifest.sh" "${MANIFEST_ARGS[@]}"
 
 cat <<EOF
 

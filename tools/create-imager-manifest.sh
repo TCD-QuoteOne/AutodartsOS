@@ -6,6 +6,7 @@ OUTPUT_PATH=""
 NAME="Autodarts Pi OS Lite"
 DESCRIPTION="Raspberry Pi OS Lite appliance image for Autodarts with setup hotspot, kiosk and first-boot customisation."
 ICON_URL="https://raw.githubusercontent.com/TCD-QuoteOne/AutodartsOS/main/assets/boot/autodarts-pi-os-splash.png"
+IMAGE_URL=""
 
 usage() {
   cat <<'EOF'
@@ -39,6 +40,10 @@ while [[ $# -gt 0 ]]; do
       ICON_URL="${2:-}"
       shift 2
       ;;
+    --url)
+      IMAGE_URL="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -68,7 +73,7 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
-python3 - "$IMAGE_PATH" "$OUTPUT_PATH" "$NAME" "$DESCRIPTION" "$ICON_URL" <<'PY'
+python3 - "$IMAGE_PATH" "$OUTPUT_PATH" "$NAME" "$DESCRIPTION" "$ICON_URL" "$IMAGE_URL" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -80,6 +85,7 @@ output_path = pathlib.Path(sys.argv[2]).resolve()
 name = sys.argv[3]
 description = sys.argv[4]
 icon_url = sys.argv[5]
+image_url = sys.argv[6] or image_path.as_uri()
 
 sha256 = hashlib.sha256()
 with image_path.open("rb") as handle:
@@ -105,7 +111,7 @@ manifest = {
             "name": name,
             "description": description,
             "icon": icon_url,
-            "url": image_path.as_uri(),
+            "url": image_url,
             "image_download_size": image_path.stat().st_size,
             "image_download_sha256": sha256.hexdigest(),
             "release_date": date.today().isoformat(),
