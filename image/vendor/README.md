@@ -16,4 +16,12 @@ When present, `image/build.sh` embeds it into the image at:
 
 The first-boot installer then uses this bundled script instead of downloading `https://get.autodarts.io`.
 
+Alternatively, set this during the build:
+
+```bash
+BUNDLE_AUTODARTS_INSTALLER=true ./image/build.sh
+```
+
+Then `image/build.sh` downloads the installer from `https://get.autodarts.io` and embeds that script into the generated image stage without committing it to the repository.
+
 Do not commit third-party installer code here unless its license and redistribution terms allow it.

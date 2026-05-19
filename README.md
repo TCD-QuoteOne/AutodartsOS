@@ -85,6 +85,26 @@ Dadurch werden keine normalen Desktop- oder Full-Images erzeugt.
 
 Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. Die genaue `pi-gen`-Konfiguration wird im nächsten Projektschritt festgezurrt.
 
+Fuer einen kompletten Release-Build inklusive optional eingebettetem Autodarts-Installer und automatisch erzeugter Raspberry-Pi-Imager-Manifestdatei:
+
+```bash
+cd /opt/AutodartsOS
+git pull origin main
+export PI_GEN_DIR="/opt/pi-gen"
+BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
+```
+
+BUNDLE_AUTODARTS_INSTALLER=true bettet den aktuellen Installer von `https://get.autodarts.io` in das Image ein. Die Autodarts-Installation selbst laeuft weiterhin beim ersten Boot auf dem Raspberry Pi, weil dort Hardware, Systemdienste und Architektur passen. Falls der Installer spaeter weitere Pakete oder Releases nachlaedt, braucht der Pi dafuer weiterhin Netzwerk.
+
+Danach liegen im `deploy`-Ordner von `pi-gen` zwei wichtige Dateien:
+
+```text
+AutodartsPiOS-...-lite.zip
+AutodartsPiOS-...-lite.rpi-imager-manifest
+```
+
+Die Manifestdatei mit Raspberry Pi Imager oeffnen, dann `Autodarts Pi OS Lite` aus der OS-Liste waehlen. So sind WLAN, Hostname und SSH im Imager aktiv. Die ZIP direkt ueber `Use custom` auszuwaehlen bleibt technisch eingeschraenkt, weil dem Imager dann die Metadaten fehlen.
+
 ## Geplanter Out-of-the-box-Ablauf
 
 1. Image auf microSD oder SSD flashen.

@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PI_GEN_DIR="${PI_GEN_DIR:-}"
 STAGE_NAME="stage2-autodarts-pi-os"
 OLD_STAGE_NAME="stage6-autodarts-pi-os"
+AUTODARTS_INSTALLER_URL="${AUTODARTS_INSTALLER_URL:-https://get.autodarts.io}"
+BUNDLE_AUTODARTS_INSTALLER="${BUNDLE_AUTODARTS_INSTALLER:-false}"
 
 if [[ -z "$PI_GEN_DIR" ]]; then
   echo "PI_GEN_DIR must point to an existing pi-gen checkout." >&2
@@ -36,6 +38,12 @@ cp -R "$ROOT_DIR/image/overlays/." "$STAGE_DIR/00-install/files/"
 cp "$ROOT_DIR/assets/boot/autodarts-pi-os-splash.png" "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/splash.png"
 if [[ -f "$ROOT_DIR/image/vendor/autodarts-installer.sh" ]]; then
   cp "$ROOT_DIR/image/vendor/autodarts-installer.sh" "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh"
+elif [[ "$BUNDLE_AUTODARTS_INSTALLER" == "1" || "$BUNDLE_AUTODARTS_INSTALLER" == "true" ]]; then
+  echo "Downloading Autodarts installer for bundling from $AUTODARTS_INSTALLER_URL"
+  curl --fail --location --silent --show-error --retry 5 --retry-delay 3 \
+    "$AUTODARTS_INSTALLER_URL" \
+    --output "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh"
+  chmod 0755 "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh"
 fi
 rm -f "$STAGE_DIR/00-packages"
 cp "$ROOT_DIR/image/packages" "$STAGE_DIR/00-install/00-packages"
