@@ -12,10 +12,14 @@ COMMAND="$(command_from_config)"
 if [[ -z "$COMMAND" || "$COMMAND" == "/usr/local/bin/autodarts-runtime" ]]; then
   if systemctl list-unit-files autodarts.service >/dev/null 2>&1; then
     echo "Autodarts is managed by upstream autodarts.service."
-    systemctl start autodarts.service || true
+    systemctl enable autodarts.service >/dev/null 2>&1 || true
+    systemctl restart autodarts.service || systemctl start autodarts.service || true
     sleep infinity
   fi
   if command -v autodarts >/dev/null 2>&1; then
+    if id autodarts >/dev/null 2>&1; then
+      exec runuser -u autodarts -- autodarts
+    fi
     exec autodarts
   fi
   echo "Autodarts runtime command is not configured yet and no autodarts binary/service was found."
@@ -23,4 +27,7 @@ if [[ -z "$COMMAND" || "$COMMAND" == "/usr/local/bin/autodarts-runtime" ]]; then
   sleep infinity
 fi
 
+if id autodarts >/dev/null 2>&1; then
+  exec runuser -u autodarts -- bash -lc "$COMMAND"
+fi
 exec $COMMAND

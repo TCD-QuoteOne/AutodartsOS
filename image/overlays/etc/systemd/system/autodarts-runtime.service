@@ -9,8 +9,6 @@ EnvironmentFile=-/etc/default/autodarts-pi-os
 ExecStart=/usr/local/bin/autodarts-runtime
 Restart=always
 RestartSec=5
-User=autodarts
-Group=autodarts
 
 [Install]
 WantedBy=multi-user.target
