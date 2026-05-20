@@ -81,7 +81,82 @@ STAGE_LIST="stage0 stage1 stage2 stage2-autodarts-pi-os"
 
 Dadurch werden keine normalen Desktop- oder Full-Images erzeugt.
 
-### 5. Image bauen
+### 5. Main-Anleitung: Image bauen, Manifest pruefen, Release erstellen
+
+Diese drei Befehlsbloecke sind der normale Release-Weg auf dem Linux-Build-Server. Vor jedem Release nur die Versionsnummer anpassen, zum Beispiel `v0.1.18`, `v0.1.19` usw.
+
+#### Schritt 1: Image und Manifest bauen
+
+```bash
+cd /opt/AutodartsOS
+git pull origin main
+
+VERSION="v0.1.18"
+export PI_GEN_DIR="/opt/pi-gen"
+RELEASE_VERSION="$VERSION" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
+```
+
+Der Build erzeugt im `deploy`-Ordner von `pi-gen` nur die Lite-Version:
+
+```text
+AutodartsPiOS-...-lite.img.xz
+AutodartsPiOS-...-lite.img.rpi-imager-manifest
+```
+
+`BUNDLE_AUTODARTS_INSTALLER=true` bettet den aktuellen Installer von `https://get.autodarts.io` in das Image ein. Die Autodarts-Installation selbst laeuft weiterhin beim ersten Boot auf dem Raspberry Pi, weil dort Hardware, Systemdienste und Architektur passen. Falls der Installer spaeter weitere Pakete oder Releases nachlaedt, braucht der Pi dafuer weiterhin Netzwerk.
+
+`RELEASE_VERSION` sorgt dafuer, dass die Manifestdatei nicht auf den lokalen Build-Server-Pfad zeigt, sondern auf die spaetere GitHub-Release-URL des Image-Artefakts.
+
+#### Schritt 2: Image und Manifest pruefen
+
+```bash
+VERSION="v0.1.18"
+DEPLOY_DIR="/opt/pi-gen/deploy"
+IMAGE_FILE="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.img.xz | head -n 1)"
+MANIFEST_FILE="${IMAGE_FILE%.xz}.rpi-imager-manifest"
+EXPECTED_URL="https://github.com/TCD-QuoteOne/AutodartsOS/releases/download/${VERSION}/$(basename "$IMAGE_FILE")"
+
+ls -lh "$IMAGE_FILE" "$MANIFEST_FILE"
+grep -F "\"url\": \"$EXPECTED_URL\"" "$MANIFEST_FILE"
+grep -E '"extract_size"|"extract_sha256"|"image_download_size"|"image_download_sha256"' "$MANIFEST_FILE"
+/opt/AutodartsOS/tools/verify-deploy-image.sh "$IMAGE_FILE" "$MANIFEST_FILE"
+```
+
+Der Check stellt sicher, dass Image und Manifest zusammenpassen und die erste Partition im entpackten Image wie eine FAT-Bootpartition aussieht. Die `extract_*`-Werte sind wichtig, damit Raspberry Pi Imager die entpackte Image-Groesse kennt und der Fortschritt beim Schreiben nicht ueber 100 Prozent laeuft.
+
+#### Schritt 3: GitHub-Release hochladen
+
+```bash
+gh release create "$VERSION" \
+  "$IMAGE_FILE" \
+  "$MANIFEST_FILE" \
+  --repo TCD-QuoteOne/AutodartsOS \
+  --title "Autodarts Pi OS $VERSION" \
+  --notes "Autodarts Pi OS Lite release. Open the .rpi-imager-manifest file with Raspberry Pi Imager to enable WiFi, hostname and SSH customisation."
+```
+
+Falls das Release schon existiert und nur neue Dateien hochgeladen werden sollen:
+
+```bash
+gh release upload "$VERSION" \
+  "$IMAGE_FILE" \
+  "$MANIFEST_FILE" \
+  --repo TCD-QuoteOne/AutodartsOS \
+  --clobber
+```
+
+Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die Image-Datei direkt ueber `Use custom`.
+
+Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt oder `extract_size` / `extract_sha256` fehlen, wurde es falsch oder mit einem alten Generator erzeugt. Dann vor dem Upload neu erzeugen:
+
+```bash
+"$PWD/tools/create-imager-manifest.sh" \
+  --image "$IMAGE_FILE" \
+  --output "$MANIFEST_FILE" \
+  --url "$EXPECTED_URL"
+```
+
+### 6. Detailhinweise: Image bauen
 
 Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. Die genaue `pi-gen`-Konfiguration wird im nächsten Projektschritt festgezurrt.
 
@@ -105,7 +180,7 @@ AutodartsPiOS-...-lite.img.rpi-imager-manifest
 
 Die Manifestdatei mit Raspberry Pi Imager oeffnen, dann `Autodarts Pi OS Lite` aus der OS-Liste waehlen. So sind WLAN, Hostname und SSH im Imager aktiv. Das Release nutzt `.img.xz`, weil das dem offiziellen Raspberry-Pi-Image-Format entspricht und fuer den Imager robuster ist als ZIP.
 
-### 6. GitHub-Release erstellen
+### 7. Detailhinweise: GitHub-Release erstellen
 
 Nach einem erfolgreichen Build werden die Release-Dateien aus dem `deploy`-Ordner von `pi-gen` in ein GitHub-Release geladen. Relevant sind immer das `.img.xz`-Image und die passende Raspberry-Pi-Imager-Manifestdatei.
 
