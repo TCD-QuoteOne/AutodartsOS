@@ -96,18 +96,18 @@ RELEASE_VERSION="v0.1.16" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.
 
 BUNDLE_AUTODARTS_INSTALLER=true bettet den aktuellen Installer von `https://get.autodarts.io` in das Image ein. Die Autodarts-Installation selbst laeuft weiterhin beim ersten Boot auf dem Raspberry Pi, weil dort Hardware, Systemdienste und Architektur passen. Falls der Installer spaeter weitere Pakete oder Releases nachlaedt, braucht der Pi dafuer weiterhin Netzwerk.
 
-`RELEASE_VERSION` sorgt dafuer, dass die Manifestdatei nicht auf den lokalen Build-Server-Pfad zeigt, sondern auf die spaetere GitHub-Release-URL der ZIP. Danach liegen im `deploy`-Ordner von `pi-gen` zwei wichtige Dateien:
+`RELEASE_VERSION` sorgt dafuer, dass die Manifestdatei nicht auf den lokalen Build-Server-Pfad zeigt, sondern auf die spaetere GitHub-Release-URL des Image-Artefakts. Danach liegen im `deploy`-Ordner von `pi-gen` zwei wichtige Dateien:
 
 ```text
-AutodartsPiOS-...-lite.zip
-AutodartsPiOS-...-lite.rpi-imager-manifest
+AutodartsPiOS-...-lite.img.xz
+AutodartsPiOS-...-lite.img.rpi-imager-manifest
 ```
 
-Die Manifestdatei mit Raspberry Pi Imager oeffnen, dann `Autodarts Pi OS Lite` aus der OS-Liste waehlen. So sind WLAN, Hostname und SSH im Imager aktiv. Die ZIP direkt ueber `Use custom` auszuwaehlen bleibt technisch eingeschraenkt, weil dem Imager dann die Metadaten fehlen.
+Die Manifestdatei mit Raspberry Pi Imager oeffnen, dann `Autodarts Pi OS Lite` aus der OS-Liste waehlen. So sind WLAN, Hostname und SSH im Imager aktiv. Das Release nutzt `.img.xz`, weil das dem offiziellen Raspberry-Pi-Image-Format entspricht und fuer den Imager robuster ist als ZIP.
 
 ### 6. GitHub-Release erstellen
 
-Nach einem erfolgreichen Build werden die Release-Dateien aus dem `deploy`-Ordner von `pi-gen` in ein GitHub-Release geladen. Relevant sind immer die Image-ZIP und die passende Raspberry-Pi-Imager-Manifestdatei.
+Nach einem erfolgreichen Build werden die Release-Dateien aus dem `deploy`-Ordner von `pi-gen` in ein GitHub-Release geladen. Relevant sind immer das `.img.xz`-Image und die passende Raspberry-Pi-Imager-Manifestdatei.
 
 Beispiel fuer Version `v0.1.16`:
 
@@ -117,26 +117,26 @@ git pull origin main
 
 VERSION="v0.1.16"
 DEPLOY_DIR="/opt/pi-gen/deploy"
-IMAGE_ZIP="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.zip | head -n 1)"
-MANIFEST_FILE="${IMAGE_ZIP%.zip}.rpi-imager-manifest"
-EXPECTED_URL="https://github.com/TCD-QuoteOne/AutodartsOS/releases/download/${VERSION}/$(basename "$IMAGE_ZIP")"
+IMAGE_FILE="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.img.xz | head -n 1)"
+MANIFEST_FILE="${IMAGE_FILE%.xz}.rpi-imager-manifest"
+EXPECTED_URL="https://github.com/TCD-QuoteOne/AutodartsOS/releases/download/${VERSION}/$(basename "$IMAGE_FILE")"
 
-ls -lh "$IMAGE_ZIP" "$MANIFEST_FILE"
+ls -lh "$IMAGE_FILE" "$MANIFEST_FILE"
 grep -F "\"url\": \"$EXPECTED_URL\"" "$MANIFEST_FILE"
 grep -E '"extract_size"|"extract_sha256"|"image_download_size"|"image_download_sha256"' "$MANIFEST_FILE"
 ```
 
 Wenn beide Dateien angezeigt werden, `grep` die GitHub-URL findet und das Manifest `extract_size` sowie `extract_sha256` enthaelt, Release erstellen. Diese `extract_*`-Werte sind wichtig, damit Raspberry Pi Imager die entpackte Image-Groesse kennt und der Fortschritt beim Schreiben nicht ueber 100 Prozent laeuft.
 
-Vor dem Upload sollte das Image einmal geprueft werden. Der Check stellt sicher, dass ZIP und Manifest zusammenpassen und die erste Partition im entpackten Image wie eine FAT-Bootpartition aussieht:
+Vor dem Upload sollte das Image einmal geprueft werden. Der Check stellt sicher, dass Image und Manifest zusammenpassen und die erste Partition im entpackten Image wie eine FAT-Bootpartition aussieht:
 
 ```bash
-/opt/AutodartsOS/tools/verify-deploy-image.sh "$IMAGE_ZIP" "$MANIFEST_FILE"
+/opt/AutodartsOS/tools/verify-deploy-image.sh "$IMAGE_FILE" "$MANIFEST_FILE"
 ```
 
 ```bash
 gh release create "$VERSION" \
-  "$IMAGE_ZIP" \
+  "$IMAGE_FILE" \
   "$MANIFEST_FILE" \
   --repo TCD-QuoteOne/AutodartsOS \
   --title "Autodarts Pi OS $VERSION" \
@@ -147,19 +147,19 @@ Falls das Release schon existiert und nur neue Dateien hochgeladen werden sollen
 
 ```bash
 gh release upload "$VERSION" \
-  "$IMAGE_ZIP" \
+  "$IMAGE_FILE" \
   "$MANIFEST_FILE" \
   --repo TCD-QuoteOne/AutodartsOS \
   --clobber
 ```
 
-Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die ZIP direkt ueber `Use custom`.
+Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die Image-Datei direkt ueber `Use custom`.
 
 Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt oder `extract_size` / `extract_sha256` fehlen, wurde es falsch oder mit einem alten Generator erzeugt. Dann vor dem Upload neu erzeugen:
 
 ```bash
 "$PWD/tools/create-imager-manifest.sh" \
-  --image "$IMAGE_ZIP" \
+  --image "$IMAGE_FILE" \
   --output "$MANIFEST_FILE" \
   --url "$EXPECTED_URL"
 ```
@@ -179,10 +179,10 @@ Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/.
 
 Autodarts Pi OS ist mit den normalen Raspberry-Pi-Imager-Anpassungen kompatibel. Du kannst im Imager also bereits WLAN, Hostname und SSH hinterlegen. Beim ersten Boot uebernimmt Raspberry Pi OS diese Werte wie beim Standard-Image. Autodarts Pi OS fuehrt eine vorhandene Imager-`firstrun.sh` notfalls selbst aus, aktiviert SSH bei vorhandener `ssh`/`ssh.txt`-Bootdatei und erkennt anschliessend eine funktionierende vorkonfigurierte Netzwerkverbindung. Dann wird der lokale Setup-Modus automatisch abgeschlossen.
 
-Wichtig: Wenn du im Imager direkt `Use custom` und danach die Autodarts-Pi-OS-ZIP/IMG waehlst, sind die Anpassungen ausgegraut. Das ist ein Imager-Metadaten-Thema. Erzeuge stattdessen ein Manifest:
+Wichtig: Wenn du im Imager direkt `Use custom` und danach die Autodarts-Pi-OS-Image-Datei waehlst, sind die Anpassungen ausgegraut. Das ist ein Imager-Metadaten-Thema. Fuer Releases ist die Manifestdatei bereits im GitHub-Release enthalten. Nur bei einem lokalen Test-Image erzeugst du selbst ein Manifest:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\create-imager-manifest.ps1 -ImagePath "C:\Pfad\zu\AutodartsPiOS-lite.zip"
+powershell -ExecutionPolicy Bypass -File .\tools\create-imager-manifest.ps1 -ImagePath "C:\Pfad\zu\AutodartsPiOS-lite.img"
 ```
 
 Dann:
@@ -193,7 +193,7 @@ Dann:
 4. Im Imager `Autodarts Pi OS Lite` aus der OS-Liste waehlen.
 5. Erst danach Speicherkarte waehlen und unter `Anpassung` WLAN, Hostname und SSH setzen.
 
-Nicht die ZIP direkt ueber `Use custom` auswaehlen. Dann fehlen die Metadaten und die Anpassungen bleiben ausgegraut.
+Nicht die Image-Datei direkt ueber `Use custom` auswaehlen. Dann fehlen die Metadaten und die Anpassungen bleiben ausgegraut.
 
 Wenn die im Imager eingetragenen WLAN-Daten falsch sind oder das WLAN nicht erreichbar ist, bleibt Autodarts Pi OS im Factory-Setup und startet den Hotspot `Autodarts-Setup`. Dann kannst du die Daten wie unten beschrieben ueber `http://auto.setup.go` korrigieren.
 

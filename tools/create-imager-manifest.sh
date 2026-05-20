@@ -11,7 +11,7 @@ IMAGE_URL=""
 usage() {
   cat <<'EOF'
 Usage:
-  create-imager-manifest.sh --image /path/to/AutodartsPiOS.zip [--output /path/to/manifest.rpi-imager-manifest]
+  create-imager-manifest.sh --image /path/to/AutodartsPiOS.img.xz [--output /path/to/manifest.rpi-imager-manifest]
 
 Creates a Raspberry Pi Imager manifest with init_format=systemd so OS customisation
 for WiFi, hostname and SSH is enabled.

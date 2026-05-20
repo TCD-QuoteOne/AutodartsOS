@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_ZIP="${1:-}"
+IMAGE_FILE="${1:-}"
 MANIFEST_FILE="${2:-}"
 
-if [[ -z "$IMAGE_ZIP" ]]; then
-  echo "Usage: verify-deploy-image.sh /path/to/AutodartsPiOS-lite.zip [/path/to/manifest.rpi-imager-manifest]" >&2
+if [[ -z "$IMAGE_FILE" ]]; then
+  echo "Usage: verify-deploy-image.sh /path/to/AutodartsPiOS-lite.img.xz [/path/to/manifest.rpi-imager-manifest]" >&2
   exit 1
 fi
 
-if [[ ! -f "$IMAGE_ZIP" ]]; then
-  echo "Image ZIP not found: $IMAGE_ZIP" >&2
+if [[ ! -f "$IMAGE_FILE" ]]; then
+  echo "Image not found: $IMAGE_FILE" >&2
   exit 1
 fi
 
 if [[ -z "$MANIFEST_FILE" ]]; then
-  MANIFEST_FILE="${IMAGE_ZIP%.zip}.rpi-imager-manifest"
+  MANIFEST_FILE="${IMAGE_FILE%.*}.rpi-imager-manifest"
 fi
 
 if [[ ! -f "$MANIFEST_FILE" ]]; then
@@ -31,8 +31,6 @@ need() {
 }
 
 need python3
-need unzip
-need sha256sum
 need fdisk
 need file
 
@@ -43,20 +41,22 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Checking manifest metadata..."
-python3 - "$IMAGE_ZIP" "$MANIFEST_FILE" <<'PY'
+python3 - "$IMAGE_FILE" "$MANIFEST_FILE" <<'PY'
+import gzip
 import hashlib
 import json
+import lzma
 import pathlib
 import sys
 import zipfile
 
-zip_path = pathlib.Path(sys.argv[1]).resolve()
+image_path = pathlib.Path(sys.argv[1]).resolve()
 manifest_path = pathlib.Path(sys.argv[2]).resolve()
 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 entry = manifest["os_list"][0]
 
-download_size = zip_path.stat().st_size
-download_sha = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+download_size = image_path.stat().st_size
+download_sha = hashlib.sha256(image_path.read_bytes()).hexdigest()
 
 if int(entry.get("image_download_size", -1)) != download_size:
     raise SystemExit(f"image_download_size mismatch: manifest={entry.get('image_download_size')} actual={download_size}")
@@ -67,38 +67,66 @@ if not entry.get("url", "").startswith("https://github.com/"):
 if "extract_size" not in entry or "extract_sha256" not in entry:
     raise SystemExit("manifest is missing extract_size or extract_sha256")
 
-with zipfile.ZipFile(zip_path) as archive:
-    members = [m for m in archive.infolist() if not m.is_dir()]
-    img_members = [m for m in members if m.filename.lower().endswith(".img")]
-    if not img_members:
-        raise SystemExit("ZIP does not contain a .img file")
-    member = max(img_members, key=lambda item: item.file_size)
+def hash_stream(handle):
     digest = hashlib.sha256()
     size = 0
-    with archive.open(member) as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            size += len(chunk)
-            digest.update(chunk)
-    if int(entry["extract_size"]) != size:
-        raise SystemExit(f"extract_size mismatch: manifest={entry['extract_size']} actual={size}")
-    if str(entry["extract_sha256"]).lower() != digest.hexdigest():
-        raise SystemExit("extract_sha256 mismatch")
-    print(member.filename)
+    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+        size += len(chunk)
+        digest.update(chunk)
+    return size, digest.hexdigest()
+
+if image_path.suffix.lower() == ".zip":
+    with zipfile.ZipFile(image_path) as archive:
+        img_members = [m for m in archive.infolist() if not m.is_dir() and m.filename.lower().endswith(".img")]
+        if not img_members:
+            raise SystemExit("ZIP does not contain a .img file")
+        member = max(img_members, key=lambda item: item.file_size)
+        with archive.open(member) as handle:
+            size, digest = hash_stream(handle)
+elif image_path.suffix.lower() == ".xz":
+    with lzma.open(image_path, "rb") as handle:
+        size, digest = hash_stream(handle)
+elif image_path.suffix.lower() == ".gz":
+    with gzip.open(image_path, "rb") as handle:
+        size, digest = hash_stream(handle)
+else:
+    size, digest = image_path.stat().st_size, download_sha
+
+if int(entry["extract_size"]) != size:
+    raise SystemExit(f"extract_size mismatch: manifest={entry['extract_size']} actual={size}")
+if str(entry["extract_sha256"]).lower() != digest:
+    raise SystemExit("extract_sha256 mismatch")
 PY
 
-IMG_MEMBER="$(python3 - "$IMAGE_ZIP" <<'PY'
+echo "Extracting image for partition check..."
+python3 - "$IMAGE_FILE" "$TMPDIR/image.img" <<'PY'
+import gzip
+import lzma
 import pathlib
+import shutil
 import sys
 import zipfile
 
-with zipfile.ZipFile(pathlib.Path(sys.argv[1])) as archive:
-    img_members = [m for m in archive.infolist() if not m.is_dir() and m.filename.lower().endswith(".img")]
-    print(max(img_members, key=lambda item: item.file_size).filename)
-PY
-)"
+image_path = pathlib.Path(sys.argv[1]).resolve()
+output_path = pathlib.Path(sys.argv[2]).resolve()
 
-echo "Extracting $IMG_MEMBER..."
-unzip -p "$IMAGE_ZIP" "$IMG_MEMBER" > "$TMPDIR/image.img"
+if image_path.suffix.lower() == ".zip":
+    with zipfile.ZipFile(image_path) as archive:
+        img_members = [m for m in archive.infolist() if not m.is_dir() and m.filename.lower().endswith(".img")]
+        if not img_members:
+            raise SystemExit("ZIP does not contain a .img file")
+        member = max(img_members, key=lambda item: item.file_size)
+        with archive.open(member) as source, output_path.open("wb") as target:
+            shutil.copyfileobj(source, target, length=1024 * 1024)
+elif image_path.suffix.lower() == ".xz":
+    with lzma.open(image_path, "rb") as source, output_path.open("wb") as target:
+        shutil.copyfileobj(source, target, length=1024 * 1024)
+elif image_path.suffix.lower() == ".gz":
+    with gzip.open(image_path, "rb") as source, output_path.open("wb") as target:
+        shutil.copyfileobj(source, target, length=1024 * 1024)
+else:
+    shutil.copyfile(image_path, output_path)
+PY
 
 echo "Checking partition table..."
 fdisk -l "$TMPDIR/image.img"
