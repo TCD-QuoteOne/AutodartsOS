@@ -128,6 +128,12 @@ grep -E '"extract_size"|"extract_sha256"|"image_download_size"|"image_download_s
 
 Wenn beide Dateien angezeigt werden, `grep` die GitHub-URL findet und das Manifest `extract_size` sowie `extract_sha256` enthaelt, Release erstellen. Diese `extract_*`-Werte sind wichtig, damit Raspberry Pi Imager die entpackte Image-Groesse kennt und der Fortschritt beim Schreiben nicht ueber 100 Prozent laeuft.
 
+Vor dem Upload sollte das Image einmal geprueft werden. Der Check stellt sicher, dass ZIP und Manifest zusammenpassen und die erste Partition im entpackten Image wie eine FAT-Bootpartition aussieht:
+
+```bash
+/opt/AutodartsOS/tools/verify-deploy-image.sh "$IMAGE_ZIP" "$MANIFEST_FILE"
+```
+
 ```bash
 gh release create "$VERSION" \
   "$IMAGE_ZIP" \
