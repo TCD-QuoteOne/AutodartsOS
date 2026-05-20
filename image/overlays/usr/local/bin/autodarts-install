@@ -33,6 +33,8 @@ VERSION="$(config_string autodarts_version)"
 VERSION="${VERSION:-latest}"
 HOST="$(printf '%s\n' "$INSTALLER_URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
 INSTALLER="/tmp/autodarts-installer.sh"
+TARGET_USER="autodarts"
+TARGET_HOME="/home/autodarts"
 
 network_online() {
   nmcli -t -f STATE general status 2>/dev/null | grep -qx connected || return 1
@@ -52,14 +54,31 @@ else
   curl --fail --location --silent --show-error --retry 10 --retry-delay 5 "$INSTALLER_URL" --output "$INSTALLER"
 fi
 chmod +x "$INSTALLER"
+install -d -m 0755 -o "$TARGET_USER" -g "$TARGET_USER" "$TARGET_HOME"
+install -d -m 0700 -o "$TARGET_USER" -g "$TARGET_USER" "$TARGET_HOME/.local" "$TARGET_HOME/.config" "$TARGET_HOME/.cache"
+
+run_installer() {
+  env \
+    HOME="$TARGET_HOME" \
+    USER="$TARGET_USER" \
+    LOGNAME="$TARGET_USER" \
+    SUDO_USER="$TARGET_USER" \
+    SUDO_UID="$(id -u "$TARGET_USER")" \
+    SUDO_GID="$(id -g "$TARGET_USER")" \
+    XDG_CONFIG_HOME="$TARGET_HOME/.config" \
+    XDG_CACHE_HOME="$TARGET_HOME/.cache" \
+    XDG_DATA_HOME="$TARGET_HOME/.local/share" \
+    bash "$@"
+}
 
 if [[ "$VERSION" == "latest" ]]; then
   echo "Installing latest Autodarts version." | tee -a "$LOG_FILE"
-  bash "$INSTALLER" 2>&1 | tee -a "$LOG_FILE"
+  run_installer "$INSTALLER" 2>&1 | tee -a "$LOG_FILE"
 else
   echo "Installing Autodarts version $VERSION." | tee -a "$LOG_FILE"
-  bash "$INSTALLER" "$VERSION" 2>&1 | tee -a "$LOG_FILE"
+  run_installer "$INSTALLER" "$VERSION" 2>&1 | tee -a "$LOG_FILE"
 fi
 
+chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.local" "$TARGET_HOME/.config" "$TARGET_HOME/.cache" || true
 touch "$MARKER"
 echo "Autodarts installation completed." | tee -a "$LOG_FILE"

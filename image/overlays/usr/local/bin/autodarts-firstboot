@@ -46,6 +46,18 @@ set_config_bool() {
   fi
 }
 
+ensure_hosts_entry() {
+  local hostname="$1"
+  [[ -n "$hostname" ]] || return 0
+
+  touch /etc/hosts
+  if grep -qE '^[[:space:]]*127\.0\.1\.1[[:space:]]+' /etc/hosts; then
+    sed -i -E "s/^[[:space:]]*127\.0\.1\.1[[:space:]].*/127.0.1.1\t${hostname}/" /etc/hosts
+  else
+    printf '127.0.1.1\t%s\n' "$hostname" >> /etc/hosts
+  fi
+}
+
 json_string() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g' | tr '\n' ' '
 }
@@ -145,10 +157,13 @@ CURRENT_HOSTNAME="$(hostnamectl --static status 2>/dev/null || hostname 2>/dev/n
 HOSTNAME="$(config_string hostname)"
 if [[ "$SEED_USED" != "true" && -n "$CURRENT_HOSTNAME" && "$CURRENT_HOSTNAME" != "raspberrypi" && "$CURRENT_HOSTNAME" != "$HOSTNAME" ]]; then
   set_config_string hostname "$CURRENT_HOSTNAME"
+  ensure_hosts_entry "$CURRENT_HOSTNAME"
 elif [[ -n "$HOSTNAME" ]]; then
   hostnamectl set-hostname "$HOSTNAME" || true
+  ensure_hosts_entry "$HOSTNAME"
 elif [[ -n "$CURRENT_HOSTNAME" ]]; then
   set_config_string hostname "$CURRENT_HOSTNAME"
+  ensure_hosts_entry "$CURRENT_HOSTNAME"
 fi
 
 if nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11-wireless" && $1 != "Autodarts-Setup" { found=1 } END { exit found ? 0 : 1 }'; then
