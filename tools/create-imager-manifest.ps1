@@ -27,6 +27,60 @@ $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedImage
 $imageUri = if ($ImageUrl) { $ImageUrl } else { [System.Uri]::new($imageItem.FullName).AbsoluteUri }
 $releaseDate = Get-Date -Format "yyyy-MM-dd"
 
+function Get-StreamSha256 {
+  param([System.IO.Stream]$Stream)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $buffer = New-Object byte[] (1024 * 1024)
+    $total = [Int64]0
+    while (($read = $Stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+      $total += $read
+      [void]$sha.TransformBlock($buffer, 0, $read, $null, 0)
+    }
+    [void]$sha.TransformFinalBlock([byte[]]::new(0), 0, 0)
+    $digest = -join ($sha.Hash | ForEach-Object { $_.ToString("x2") })
+    return [ordered]@{
+      size = $total
+      sha256 = $digest
+    }
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-ExtractedImageInfo {
+  param([System.IO.FileInfo]$Image)
+
+  if ($Image.Extension.ToLowerInvariant() -eq ".zip") {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($Image.FullName)
+    try {
+      $entries = @($archive.Entries | Where-Object { $_.Length -gt 0 })
+      $imgEntries = @($entries | Where-Object { $_.FullName.ToLowerInvariant().EndsWith(".img") })
+      $candidateEntries = if ($imgEntries.Count -gt 0) { $imgEntries } else { $entries }
+      $entry = @($candidateEntries | Sort-Object Length -Descending)[0]
+      if (!$entry) {
+        throw "No file entry found in ZIP: $($Image.FullName)"
+      }
+      $stream = $entry.Open()
+      try {
+        return Get-StreamSha256 -Stream $stream
+      } finally {
+        $stream.Dispose()
+      }
+    } finally {
+      $archive.Dispose()
+    }
+  }
+
+  return [ordered]@{
+    size = $Image.Length
+    sha256 = $hash.Hash.ToLowerInvariant()
+  }
+}
+
+$extractInfo = Get-ExtractedImageInfo -Image $imageItem
+
 $manifest = [ordered]@{
   imager = [ordered]@{
     latest_version = "2.0.0"
@@ -47,6 +101,8 @@ $manifest = [ordered]@{
       description = $Description
       icon = $IconUrl
       url = $imageUri
+      extract_size = [Int64]$extractInfo.size
+      extract_sha256 = $extractInfo.sha256
       image_download_size = $imageItem.Length
       image_download_sha256 = $hash.Hash.ToLowerInvariant()
       release_date = $releaseDate

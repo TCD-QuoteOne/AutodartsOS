@@ -123,9 +123,10 @@ EXPECTED_URL="https://github.com/TCD-QuoteOne/AutodartsOS/releases/download/${VE
 
 ls -lh "$IMAGE_ZIP" "$MANIFEST_FILE"
 grep -F "\"url\": \"$EXPECTED_URL\"" "$MANIFEST_FILE"
+grep -E '"extract_size"|"extract_sha256"|"image_download_size"|"image_download_sha256"' "$MANIFEST_FILE"
 ```
 
-Wenn beide Dateien angezeigt werden und `grep` die GitHub-URL findet, Release erstellen:
+Wenn beide Dateien angezeigt werden, `grep` die GitHub-URL findet und das Manifest `extract_size` sowie `extract_sha256` enthaelt, Release erstellen. Diese `extract_*`-Werte sind wichtig, damit Raspberry Pi Imager die entpackte Image-Groesse kennt und der Fortschritt beim Schreiben nicht ueber 100 Prozent laeuft.
 
 ```bash
 gh release create "$VERSION" \
@@ -148,7 +149,7 @@ gh release upload "$VERSION" \
 
 Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die ZIP direkt ueber `Use custom`.
 
-Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt, wurde es ohne `RELEASE_VERSION` erzeugt. Dann vor dem Upload neu erzeugen:
+Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt oder `extract_size` / `extract_sha256` fehlen, wurde es falsch oder mit einem alten Generator erzeugt. Dann vor dem Upload neu erzeugen:
 
 ```bash
 "$PWD/tools/create-imager-manifest.sh" \

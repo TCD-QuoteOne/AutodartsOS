@@ -74,10 +74,13 @@ fi
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 python3 - "$IMAGE_PATH" "$OUTPUT_PATH" "$NAME" "$DESCRIPTION" "$ICON_URL" "$IMAGE_URL" <<'PY'
+import gzip
 import hashlib
 import json
+import lzma
 import pathlib
 import sys
+import zipfile
 from datetime import date
 
 image_path = pathlib.Path(sys.argv[1]).resolve()
@@ -91,6 +94,38 @@ sha256 = hashlib.sha256()
 with image_path.open("rb") as handle:
     for chunk in iter(lambda: handle.read(1024 * 1024), b""):
         sha256.update(chunk)
+download_sha256 = sha256.hexdigest()
+
+
+def hash_stream(handle):
+    digest = hashlib.sha256()
+    size = 0
+    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+        size += len(chunk)
+        digest.update(chunk)
+    return size, digest.hexdigest()
+
+
+def extracted_image_info(path):
+    suffixes = [suffix.lower() for suffix in path.suffixes]
+    if path.suffix.lower() == ".zip":
+        with zipfile.ZipFile(path) as archive:
+            members = [member for member in archive.infolist() if not member.is_dir()]
+            img_members = [member for member in members if member.filename.lower().endswith(".img")]
+            member = max(img_members or members, key=lambda item: item.file_size)
+            with archive.open(member) as handle:
+                size, digest = hash_stream(handle)
+            return size, digest
+    if path.suffix.lower() == ".gz":
+        with gzip.open(path, "rb") as handle:
+            return hash_stream(handle)
+    if path.suffix.lower() in {".xz", ".lzma"}:
+        with lzma.open(path, "rb") as handle:
+            return hash_stream(handle)
+    return path.stat().st_size, download_sha256
+
+
+extract_size, extract_sha256 = extracted_image_info(image_path)
 
 manifest = {
     "imager": {
@@ -112,8 +147,10 @@ manifest = {
             "description": description,
             "icon": icon_url,
             "url": image_url,
+            "extract_size": extract_size,
+            "extract_sha256": extract_sha256,
             "image_download_size": image_path.stat().st_size,
-            "image_download_sha256": sha256.hexdigest(),
+            "image_download_sha256": download_sha256,
             "release_date": date.today().isoformat(),
             "init_format": "systemd",
             "devices": ["pi"],
