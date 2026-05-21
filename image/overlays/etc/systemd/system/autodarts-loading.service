@@ -1,0 +1,18 @@
+[Unit]
+Description=Autodarts Pi OS loading screen
+After=plymouth-quit.service systemd-user-sessions.service
+Before=autodarts-kiosk.service
+
+[Service]
+Type=simple
+TTYPath=/dev/tty1
+TTYReset=no
+TTYVHangup=no
+TTYVTDisallocate=no
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+ExecStart=/usr/local/bin/autodarts-loading "Autodarts Pi OS wird gestartet"
+
+[Install]
+WantedBy=multi-user.target

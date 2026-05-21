@@ -16,11 +16,16 @@ if (scale > 1) {
 logo = logo.Scale(logo_width * scale, logo_height * scale);
 logo_sprite = Sprite(logo);
 logo_sprite.SetX((screen_width - logo.GetWidth()) / 2);
-logo_sprite.SetY((screen_height - logo.GetHeight()) / 2);
+logo_sprite.SetY((screen_height - logo.GetHeight()) / 2 - 34);
+
+message = Image.Text("Autodarts Pi OS wird gestartet", 0.62, 0.89, 0.43);
+message_sprite = Sprite(message);
+message_sprite.SetX((screen_width - message.GetWidth()) / 2);
+message_sprite.SetY((screen_height + logo.GetHeight()) / 2 + 18);
 
 fun refresh_callback() {
   logo_sprite.SetOpacity(1);
+  message_sprite.SetOpacity(1);
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
-

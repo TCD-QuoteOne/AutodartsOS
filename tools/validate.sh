@@ -13,6 +13,7 @@ required=(
   "image/overlays/etc/systemd/system/autodarts-watchdog.service"
   "image/overlays/etc/systemd/system/autodarts-webpanel.service"
   "image/overlays/etc/systemd/system/autodarts-network.service"
+  "image/overlays/etc/systemd/system/autodarts-loading.service"
   "image/overlays/etc/systemd/system/autodarts-kiosk.service"
   "image/overlays/etc/systemd/system/getty@tty1.service.d/autodarts-autologin.conf"
   "image/overlays/etc/autodarts-pi-os/bash_profile"
