@@ -33,7 +33,7 @@ URL="$(config_value kiosk_url)"
 URL="${URL:-$DEFAULT_URL}"
 if [[ "$(config_bool setup_mode)" != "false" ]]; then
   URL="$(config_value setup_url)"
-  URL="${URL:-http://localhost/setup}"
+  URL="${URL:-http://127.0.0.1/setup}"
 fi
 HOST="$(printf '%s\n' "$URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
 
@@ -41,6 +41,16 @@ mkdir -p "$HOME/.config/autodarts-pi-os" "$HOME/.config/chromium" "${XDG_RUNTIME
 chmod 700 "${XDG_RUNTIME_DIR:-/tmp/runtime-autodarts}" || true
 
 echo "Target kiosk host: $HOST"
+
+if [[ "$URL" == http://127.0.0.1/* || "$URL" == http://localhost/* ]]; then
+  for _ in $(seq 1 60); do
+    if curl -fsS --max-time 2 "$URL" >/dev/null 2>&1; then
+      break
+    fi
+    echo "Waiting for local webpanel at $URL"
+    sleep 1
+  done
+fi
 
 if [[ -n "${DISPLAY:-}" ]]; then
   exec /usr/local/bin/autodarts-kiosk-session "$URL"

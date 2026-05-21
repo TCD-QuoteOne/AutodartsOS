@@ -305,6 +305,8 @@ def render_page(title, content, refresh_seconds=None):
     table {{ width: 100%; border-collapse: collapse; background: #171d1a; border: 1px solid #2b3830; }}
     th, td {{ text-align: left; padding: 11px 13px; border-bottom: 1px solid #2b3830; }}
     th {{ width: 220px; color: #9ee26d; }}
+    pre {{ max-width: 100%; overflow: auto; white-space: pre-wrap; word-break: break-word; }}
+    .log-box {{ max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: #0d110f; border: 1px solid #2b3830; padding: 12px; }}
     .muted {{ color: #b8c7bb; }}
   </style>
 </head>
@@ -340,18 +342,9 @@ def render_kiosk_portal(config, request_host=""):
     net = network_status()
     autodarts_url = detect_autodarts_url(config)
     manager_url = external_autodarts_url(request_host)
-    services = {
-        "Autodarts Install": service_state("autodarts-install.service"),
-        "Autodarts Runtime": service_state("autodarts-runtime.service"),
-        "Autodarts upstream": service_state("autodarts.service"),
-        "Webpanel": service_state("autodarts-webpanel.service"),
-        "Network": service_state("autodarts-network.service"),
-    }
-    rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in services.items())
     candidates = ", ".join(html.escape(url) for url in autodarts_url_candidates(config))
     primary_ip = html.escape(net.get("primary_ip") or "noch keine IP")
     install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
-    log = html.escape(tail_file(INSTALL_LOG, "Noch kein Installationslog vorhanden.", 6000))
     fallback = html.escape(config.get("autodarts_fallback_url", config.get("play_url", "https://play.autodarts.io")))
     if autodarts_url:
         autodarts_action = f"""<a class="button" href="{html.escape(manager_url)}">Kameras / Autodarts oeffnen</a>
@@ -370,9 +363,7 @@ def render_kiosk_portal(config, request_host=""):
   <a class="button" href="/admin">Admin</a>
   <a class="button" href="/setup">Netzwerk-Setup</a>
   <a class="button" href="{fallback}">Autodarts Play</a>
-</section>
-<section><h2>Dienste</h2><table>{rows}</table></section>
-<section class="panel"><h2>Installationslog</h2><pre>{log}</pre></section>"""
+</section>"""
     return render_page("Autodarts Pi OS", content, refresh_seconds=10)
 
 
@@ -660,6 +651,7 @@ class Handler(BaseHTTPRequestHandler):
             }
             service_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in services.items())
             primary_ip = html.escape(net.get("primary_ip") or "noch keine IP")
+            install_log = html.escape(tail_file(INSTALL_LOG, "Noch kein Installationslog vorhanden.", 12000))
             admin_status = status.get("admin", {})
             admin_notice = ""
             if admin_status:
@@ -681,6 +673,7 @@ class Handler(BaseHTTPRequestHandler):
     <button type="submit">Factory Reset ausfuehren</button>
   </form>
 </section>
+<section class="panel"><h2>Installationslog</h2><pre class="log-box">{install_log}</pre></section>
 <section><h2>Letzter Setup-Status</h2><pre>{html.escape(json.dumps(status, indent=2))}</pre></section>"""
             payload = render_page("Autodarts Pi OS Admin", content).encode("utf-8")
             self.send_response(200)

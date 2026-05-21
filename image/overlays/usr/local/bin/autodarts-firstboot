@@ -114,6 +114,102 @@ run_imager_firstrun_fallback() {
   fi
 }
 
+import_imager_firstrun_credentials() {
+  local firstrun parsed ssid psk country
+  firstrun=""
+  for candidate in /boot/firmware/firstrun.sh /boot/firstrun.sh; do
+    if [[ -f "$candidate" ]]; then
+      firstrun="$candidate"
+      break
+    fi
+  done
+  [[ -n "$firstrun" ]] || return 0
+
+  parsed="$(python3 - "$firstrun" <<'PY' 2>/dev/null || true
+import re
+import shlex
+import sys
+
+path = sys.argv[1]
+text = open(path, encoding="utf-8", errors="replace").read()
+logical_lines = []
+current = ""
+for raw in text.splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        continue
+    if line.endswith("\\"):
+        current += line[:-1] + " "
+        continue
+    logical_lines.append(current + line)
+    current = ""
+if current:
+    logical_lines.append(current)
+
+ssid = password = country = ""
+for line in logical_lines:
+    try:
+        tokens = shlex.split(line)
+    except Exception:
+        tokens = line.split()
+    for idx, token in enumerate(tokens):
+        if token in {"--ssid", "--wifi-ssid"} and idx + 1 < len(tokens):
+            ssid = tokens[idx + 1]
+        elif token.startswith("--ssid="):
+            ssid = token.split("=", 1)[1]
+        elif token.startswith("--wifi-ssid="):
+            ssid = token.split("=", 1)[1]
+        elif token in {"--wifi-password", "--password", "--psk"} and idx + 1 < len(tokens):
+            password = tokens[idx + 1]
+        elif token.startswith("--wifi-password="):
+            password = token.split("=", 1)[1]
+        elif token.startswith("--psk="):
+            password = token.split("=", 1)[1]
+        elif token in {"--wifi-country", "--country"} and idx + 1 < len(tokens):
+            country = tokens[idx + 1]
+        elif token.startswith("--wifi-country="):
+            country = token.split("=", 1)[1]
+
+if not ssid:
+    match = re.search(r'\bssid\s*=\s*["\']?([^"\'\n]+)', text)
+    if match:
+        ssid = match.group(1).strip()
+if not password:
+    match = re.search(r'\b(?:psk|wifi_password|password)\s*=\s*["\']?([^"\'\n]+)', text)
+    if match:
+        password = match.group(1).strip()
+if not country:
+    match = re.search(r'\b(?:country|wifi_country)\s*=\s*["\']?([A-Za-z]{2})', text)
+    if match:
+        country = match.group(1).strip()
+
+if ssid and password:
+    print("\t".join([ssid, password, (country or "DE").upper()[:2]]))
+PY
+)"
+  [[ -n "$parsed" ]] || return 0
+  IFS=$'\t' read -r ssid psk country <<< "$parsed"
+  country="${country:-DE}"
+
+  echo "$(date -Is) Importing Raspberry Pi Imager WiFi credentials from $firstrun for SSID '$ssid'." >> "$FIRSTBOOT_LOG"
+  set_config_string wifi_ssid "$ssid"
+  set_config_string wifi_password "$psk"
+  set_config_string wifi_country "$country"
+
+  mkdir -p "$STATE_DIR"
+  cat > "$WIFI_CREDENTIALS" <<EOF
+{
+  "ssid": $(printf '%s' "$ssid" | json_file_string),
+  "password": $(printf '%s' "$psk" | json_file_string),
+  "country": $(printf '%s' "$country" | json_file_string),
+  "password_saved": true,
+  "source": "raspberry-pi-imager-firstrun"
+}
+EOF
+  chmod 0600 "$WIFI_CREDENTIALS"
+  printf 'pending\n' > "$WIFI_APPLY_REQUEST"
+}
+
 import_imager_wpa_supplicant() {
   local source ssid psk country
   source=""
@@ -151,6 +247,60 @@ import_imager_wpa_supplicant() {
   "country": $(printf '%s' "$country" | json_file_string),
   "password_saved": true,
   "source": "raspberry-pi-imager"
+}
+EOF
+  chmod 0600 "$WIFI_CREDENTIALS"
+  printf 'pending\n' > "$WIFI_APPLY_REQUEST"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "wifi": {
+    "state": "pending",
+    "message": "WLAN wurde aus Raspberry Pi Imager importiert und wird beim ersten Boot getestet.",
+    "ssid": "$(json_string "$ssid")",
+    "assigned_ip": "",
+    "stdout": "Imported from $source.",
+    "stderr": ""
+  }
+}
+EOF
+}
+
+import_imager_nm_connections() {
+  local source ssid psk country
+  source=""
+  shopt -s nullglob
+  for candidate in /etc/NetworkManager/system-connections/*.nmconnection; do
+    if grep -qE '^\[wifi\]' "$candidate" 2>/dev/null && ! grep -qE '^id=Autodarts-Setup$' "$candidate" 2>/dev/null; then
+      source="$candidate"
+      break
+    fi
+  done
+  shopt -u nullglob
+  [[ -n "$source" ]] || return 0
+
+  ssid="$(awk -F '=' '/^[[:space:]]*ssid=/{print substr($0, index($0, "=") + 1); exit}' "$source" 2>/dev/null || true)"
+  psk="$(awk -F '=' '/^[[:space:]]*psk=/{print substr($0, index($0, "=") + 1); exit}' "$source" 2>/dev/null || true)"
+  country="$(config_string wifi_country)"
+  country="${country:-DE}"
+
+  if [[ -z "$ssid" || -z "$psk" ]]; then
+    echo "$(date -Is) Imager NetworkManager profile found at $source, but SSID or PSK is missing." >> "$FIRSTBOOT_LOG"
+    return 0
+  fi
+
+  echo "$(date -Is) Importing Raspberry Pi Imager WiFi credentials from NetworkManager profile $source for SSID '$ssid'." >> "$FIRSTBOOT_LOG"
+  set_config_string wifi_ssid "$ssid"
+  set_config_string wifi_password "$psk"
+  set_config_string wifi_country "$country"
+
+  mkdir -p "$STATE_DIR"
+  cat > "$WIFI_CREDENTIALS" <<EOF
+{
+  "ssid": $(printf '%s' "$ssid" | json_file_string),
+  "password": $(printf '%s' "$psk" | json_file_string),
+  "country": $(printf '%s' "$country" | json_file_string),
+  "password_saved": true,
+  "source": "raspberry-pi-imager-networkmanager"
 }
 EOF
   chmod 0600 "$WIFI_CREDENTIALS"
@@ -217,8 +367,10 @@ if [[ ! -f "$SETUP_STATE" ]]; then
   echo "factory" > "$SETUP_STATE"
 fi
 
+import_imager_firstrun_credentials
 run_imager_firstrun_fallback
 import_imager_wpa_supplicant
+import_imager_nm_connections
 
 CURRENT_HOSTNAME="$(hostnamectl --static status 2>/dev/null || hostname 2>/dev/null || true)"
 HOSTNAME="$(config_string hostname)"
@@ -238,7 +390,11 @@ if nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11
   set_config_string wifi_ssid "$SSID"
   nmcli radio wifi on >/dev/null 2>&1 || true
   nmcli connection modify "$SSID" connection.autoconnect yes >/dev/null 2>&1 || true
-  nmcli --wait 30 connection up "$SSID" >/dev/null 2>&1 || true
+  if [[ -f "$WIFI_CREDENTIALS" ]]; then
+    printf 'pending\n' > "$WIFI_APPLY_REQUEST"
+  else
+    nmcli --wait 30 connection up "$SSID" >/dev/null 2>&1 || true
+  fi
   cat > "$STATUS_FILE" <<EOF
 {
   "wifi": {

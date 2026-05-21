@@ -34,7 +34,7 @@ while true; do
     --disable-infobars \
     --disable-session-crashed-bubble \
     --disable-features=TranslateUI \
-    --disable-gpu \
+    --ozone-platform=x11 \
     --autoplay-policy=no-user-gesture-required \
     --noerrdialogs \
     --check-for-update-interval=31536000 \
