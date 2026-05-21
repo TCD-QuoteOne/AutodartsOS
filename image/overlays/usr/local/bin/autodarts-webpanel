@@ -84,7 +84,7 @@ def service_state(name):
             encoding="utf-8",
             errors="replace",
             capture_output=True,
-            timeout=3,
+            timeout=1,
             check=False,
         )
         return result.stdout.strip() or result.stderr.strip() or "unknown"
@@ -483,6 +483,12 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 redirect(self, "/admin")
                 return
+            if data.get("confirm_recovery", [""])[0] != "yes":
+                status = read_status()
+                status["admin"] = {"state": "warning", "message": "Recovery-Hotspot wurde nicht gestartet. Bitte zuerst bestaetigen."}
+                write_status(status)
+                redirect(self, "/admin")
+                return
             config["setup_mode"] = "true"
             write_config(config)
             write_setup_state("recovery")
@@ -493,8 +499,15 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 redirect(self, "/admin")
                 return
+            if data.get("confirm_factory_reset", [""])[0] != "yes":
+                status = read_status()
+                status["admin"] = {"state": "warning", "message": "Factory Reset wurde nicht ausgefuehrt. Bitte zuerst bestaetigen."}
+                write_status(status)
+                redirect(self, "/admin")
+                return
             status = read_status()
             status["factory_reset"] = {"state": "requested", "message": "Factory Reset wurde angefordert."}
+            status.pop("admin", None)
             write_status(status)
             if DEFAULT_CONFIG.exists():
                 CONFIG.write_text(DEFAULT_CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
@@ -647,7 +660,11 @@ class Handler(BaseHTTPRequestHandler):
             }
             service_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in services.items())
             primary_ip = html.escape(net.get("primary_ip") or "noch keine IP")
-            content = f"""<div class="panel"><h2>Status</h2><p>Setup-Zustand: <strong>{html.escape(read_setup_state())}</strong></p><p>Zugewiesene IP: <strong>{primary_ip}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))} | Hotspot: {html.escape(str(net["setup_hotspot_active"]))}</p><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></div>
+            admin_status = status.get("admin", {})
+            admin_notice = ""
+            if admin_status:
+                admin_notice = f"""<div class="panel"><p><strong>{html.escape(admin_status.get("message", ""))}</strong></p></div>"""
+            content = f"""{admin_notice}<div class="panel"><h2>Status</h2><p>Setup-Zustand: <strong>{html.escape(read_setup_state())}</strong></p><p>Zugewiesene IP: <strong>{primary_ip}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))} | Hotspot: {html.escape(str(net["setup_hotspot_active"]))}</p><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></div>
 <section><h2>Dienste</h2><table>{service_rows}</table></section>
 <section class="panel"><h2>Aktionen</h2>
   <a class="button" href="/setup">Setup öffnen</a>
@@ -655,8 +672,14 @@ class Handler(BaseHTTPRequestHandler):
   <a class="button" href="/logs/kiosk">Kiosk-Log</a>
   <a class="button" href="/logs/network">Netzwerk-Log</a>
   <a class="button" href="/logs/install">Install-Log</a>
-  <form method="post" action="/admin/recovery"><button type="submit">Recovery-Hotspot starten</button></form>
-  <form method="post" action="/admin/factory-reset"><button type="submit">Factory Reset vorbereiten</button></form>
+  <form method="post" action="/admin/recovery">
+    <label><input type="checkbox" name="confirm_recovery" value="yes"> Recovery-Hotspot wirklich starten</label>
+    <button type="submit">Recovery-Hotspot starten</button>
+  </form>
+  <form method="post" action="/admin/factory-reset">
+    <label><input type="checkbox" name="confirm_factory_reset" value="yes"> System wirklich auf Werkseinstellungen zuruecksetzen</label>
+    <button type="submit">Factory Reset ausfuehren</button>
+  </form>
 </section>
 <section><h2>Letzter Setup-Status</h2><pre>{html.escape(json.dumps(status, indent=2))}</pre></section>"""
             payload = render_page("Autodarts Pi OS Admin", content).encode("utf-8")

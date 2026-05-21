@@ -169,13 +169,6 @@ EOF
 EOF
 }
 
-if [[ ! -f "$SETUP_STATE" ]]; then
-  echo "factory" > "$SETUP_STATE"
-fi
-
-run_imager_firstrun_fallback
-import_imager_wpa_supplicant
-
 existing_groups() {
   local groups=()
   local group
@@ -212,12 +205,20 @@ chown -R autodarts:autodarts /home/autodarts || true
 if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
   systemctl enable NetworkManager.service || true
   systemctl start NetworkManager.service || true
+  sleep 2
 fi
 
 if [[ -f /boot/firmware/ssh || -f /boot/firmware/ssh.txt || -f /boot/ssh || -f /boot/ssh.txt ]]; then
   systemctl enable ssh.service >/dev/null 2>&1 || systemctl enable ssh >/dev/null 2>&1 || true
   systemctl start ssh.service >/dev/null 2>&1 || systemctl start ssh >/dev/null 2>&1 || true
 fi
+
+if [[ ! -f "$SETUP_STATE" ]]; then
+  echo "factory" > "$SETUP_STATE"
+fi
+
+run_imager_firstrun_fallback
+import_imager_wpa_supplicant
 
 CURRENT_HOSTNAME="$(hostnamectl --static status 2>/dev/null || hostname 2>/dev/null || true)"
 HOSTNAME="$(config_string hostname)"

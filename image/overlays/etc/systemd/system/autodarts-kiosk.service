@@ -19,7 +19,6 @@ TTYVTDisallocate=no
 StandardInput=tty
 StandardOutput=journal
 StandardError=journal+console
-ExecStartPre=+/bin/systemctl stop autodarts-loading.service
 ExecStartPre=+/usr/bin/touch /var/log/autodarts-kiosk.log
 ExecStartPre=+/usr/bin/chown autodarts:autodarts /var/log/autodarts-kiosk.log
 ExecStart=/usr/local/bin/autodarts-kiosk
