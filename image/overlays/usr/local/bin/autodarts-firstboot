@@ -9,6 +9,8 @@ SETUP_STATE="$STATE_DIR/setup.state"
 STATUS_FILE="$STATE_DIR/setup-status.json"
 FIRSTBOOT_LOG="/var/log/autodarts-firstboot.log"
 IMAGER_FIRSTRUN_MARKER="$STATE_DIR/imager-firstrun.attempted"
+WIFI_APPLY_REQUEST="$STATE_DIR/wifi-apply.request"
+WIFI_CREDENTIALS="$STATE_DIR/wifi-credentials.json"
 SEED_USED=false
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
@@ -62,6 +64,14 @@ json_string() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g' | tr '\n' ' '
 }
 
+json_file_string() {
+  python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))' 2>/dev/null || {
+    local value
+    value="$(cat)"
+    printf '"%s"' "$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  }
+}
+
 write_firstboot_status() {
   local state="$1"
   local message="$2"
@@ -104,11 +114,67 @@ run_imager_firstrun_fallback() {
   fi
 }
 
+import_imager_wpa_supplicant() {
+  local source ssid psk country
+  source=""
+  for candidate in \
+    /boot/firmware/wpa_supplicant.conf \
+    /boot/wpa_supplicant.conf \
+    /etc/wpa_supplicant/wpa_supplicant.conf; do
+    if [[ -f "$candidate" ]]; then
+      source="$candidate"
+      break
+    fi
+  done
+  [[ -n "$source" ]] || return 0
+
+  ssid="$(awk -F '"' '/^[[:space:]]*ssid=/{print $2; exit}' "$source" 2>/dev/null || true)"
+  psk="$(awk -F '"' '/^[[:space:]]*psk=/{print $2; exit}' "$source" 2>/dev/null || true)"
+  country="$(awk -F '=' '/^[[:space:]]*country=/{gsub(/[[:space:]]/, "", $2); print toupper($2); exit}' "$source" 2>/dev/null || true)"
+  country="${country:-DE}"
+
+  if [[ -z "$ssid" || -z "$psk" ]]; then
+    echo "$(date -Is) Imager wpa_supplicant file found at $source, but SSID or PSK is missing." >> "$FIRSTBOOT_LOG"
+    return 0
+  fi
+
+  echo "$(date -Is) Importing Raspberry Pi Imager WiFi credentials from $source for SSID '$ssid'." >> "$FIRSTBOOT_LOG"
+  set_config_string wifi_ssid "$ssid"
+  set_config_string wifi_password "$psk"
+  set_config_string wifi_country "$country"
+
+  mkdir -p "$STATE_DIR"
+  cat > "$WIFI_CREDENTIALS" <<EOF
+{
+  "ssid": $(printf '%s' "$ssid" | json_file_string),
+  "password": $(printf '%s' "$psk" | json_file_string),
+  "country": $(printf '%s' "$country" | json_file_string),
+  "password_saved": true,
+  "source": "raspberry-pi-imager"
+}
+EOF
+  chmod 0600 "$WIFI_CREDENTIALS"
+  printf 'pending\n' > "$WIFI_APPLY_REQUEST"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "wifi": {
+    "state": "pending",
+    "message": "WLAN wurde aus Raspberry Pi Imager importiert und wird beim ersten Boot getestet.",
+    "ssid": "$(json_string "$ssid")",
+    "assigned_ip": "",
+    "stdout": "Imported from $source.",
+    "stderr": ""
+  }
+}
+EOF
+}
+
 if [[ ! -f "$SETUP_STATE" ]]; then
   echo "factory" > "$SETUP_STATE"
 fi
 
 run_imager_firstrun_fallback
+import_imager_wpa_supplicant
 
 existing_groups() {
   local groups=()
@@ -169,6 +235,9 @@ fi
 if nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11-wireless" && $1 != "Autodarts-Setup" { found=1 } END { exit found ? 0 : 1 }'; then
   SSID="$(nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11-wireless" && $1 != "Autodarts-Setup" { print $1; exit }')"
   set_config_string wifi_ssid "$SSID"
+  nmcli radio wifi on >/dev/null 2>&1 || true
+  nmcli connection modify "$SSID" connection.autoconnect yes >/dev/null 2>&1 || true
+  nmcli --wait 30 connection up "$SSID" >/dev/null 2>&1 || true
   cat > "$STATUS_FILE" <<EOF
 {
   "wifi": {
