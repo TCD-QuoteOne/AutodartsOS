@@ -326,6 +326,64 @@ def render_page(title, content, refresh_seconds=None):
 </html>"""
 
 
+def kiosk_shell_url(config, request_host, target):
+    target = (target or "manager").strip().lower()
+    if target in {"play", "autodarts-play"}:
+        return config.get("play_url", "https://play.autodarts.io"), "Autodarts Play"
+    if target in {"setup", "network"}:
+        return "/setup", "Netzwerk-Setup"
+    if target in {"admin"}:
+        return "/admin", "Admin"
+    if target in {"home", "kiosk"}:
+        return "/kiosk", "Autodarts Pi OS"
+    autodarts_url = detect_autodarts_url(config)
+    if autodarts_url:
+        host = (request_host or "").split(",", 1)[0].strip()
+        if host.startswith("127.0.0.1") or host.startswith("localhost"):
+            return autodarts_url, "Autodarts Manager"
+        return external_autodarts_url(request_host), "Autodarts Manager"
+    return external_autodarts_url(request_host), "Autodarts Manager"
+
+
+def render_kiosk_shell(config, request_host, target):
+    frame_url, label = kiosk_shell_url(config, request_host, target)
+    return f"""<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autodarts Pi OS - {html.escape(label)}</title>
+  <style>
+    html, body {{ height: 100%; margin: 0; overflow: hidden; font-family: system-ui, sans-serif; background: #101412; color: #eef7ef; }}
+    .bar {{ height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #101412; border-bottom: 1px solid #2b3830; box-sizing: border-box; }}
+    .bar img {{ width: 44px; height: 44px; object-fit: contain; flex: 0 0 auto; }}
+    .title {{ font-weight: 800; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    button, a {{ display: inline-flex; align-items: center; height: 38px; padding: 0 12px; border: 0; background: #9ee26d; color: #101412; text-decoration: none; font-weight: 800; cursor: pointer; }}
+    .secondary {{ background: #26312b; color: #eef7ef; }}
+    iframe {{ display: block; width: 100%; height: calc(100vh - 58px); border: 0; background: #fff; }}
+    @media (max-width: 720px) {{
+      .bar {{ gap: 6px; padding: 0 8px; }}
+      .title {{ display: none; }}
+      button, a {{ padding: 0 9px; font-size: 13px; }}
+    }}
+  </style>
+</head>
+<body>
+  <nav class="bar">
+    <img src="/splash.png" alt="">
+    <div class="title">{html.escape(label)}</div>
+    <button class="secondary" onclick="history.length > 1 ? history.back() : location.href='/kiosk'">Zurueck</button>
+    <a href="/kiosk" target="_self">Home</a>
+    <a href="/app?target=manager" target="_self">Manager</a>
+    <a href="/app?target=play" target="_self">Play</a>
+    <a href="/admin" target="_self">Admin</a>
+    <a class="secondary" href="{html.escape(frame_url)}" target="_self">Direkt</a>
+  </nav>
+  <iframe src="{html.escape(frame_url)}" title="{html.escape(label)}"></iframe>
+</body>
+</html>"""
+
+
 def redirect(handler, target):
     handler.send_response(303)
     handler.send_header("Location", target)
@@ -348,10 +406,12 @@ def render_kiosk_portal(config, request_host=""):
     install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
     fallback = html.escape(config.get("autodarts_fallback_url", config.get("play_url", "https://play.autodarts.io")))
     if autodarts_url:
-        autodarts_action = f"""<a class="button" href="{html.escape(manager_url)}">Kameras / Autodarts oeffnen</a>
+        autodarts_action = f"""<a class="button" href="/app?target=manager">Kameras / Autodarts oeffnen</a>
+  <a class="button" href="{html.escape(manager_url)}">Manager direkt oeffnen</a>
   <p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong>. Externer Zugriff: <strong>{html.escape(manager_url)}</strong></p>"""
     else:
-        autodarts_action = f"""<a class="button" href="{html.escape(manager_url)}">Autodarts Manager versuchen</a>
+        autodarts_action = f"""<a class="button" href="/app?target=manager">Autodarts Manager versuchen</a>
+  <a class="button" href="{html.escape(manager_url)}">Manager direkt oeffnen</a>
   <p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht bestaetigt erreichbar. Erwartete Adresse: <strong>{html.escape(manager_url)}</strong>. Diese Seite aktualisiert sich automatisch.</p>"""
     content = f"""<section class="panel">
   <h2>Autodarts Pi OS ist bereit</h2>
@@ -363,7 +423,8 @@ def render_kiosk_portal(config, request_host=""):
   <a class="button" href="/kiosk">Status aktualisieren</a>
   <a class="button" href="/admin">Admin</a>
   <a class="button" href="/setup">Netzwerk-Setup</a>
-  <a class="button" href="{fallback}">Autodarts Play</a>
+  <a class="button" href="/app?target=play">Autodarts Play</a>
+  <a class="button" href="{fallback}">Play direkt oeffnen</a>
 </section>"""
     return render_page("Autodarts Pi OS", content, refresh_seconds=10)
 
@@ -546,10 +607,24 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(payload)
             return
 
+        if path == "/app":
+            if read_setup_state() != "configured" or str(config.get("setup_mode", "true")).lower() != "false":
+                redirect(self, "/setup")
+                return
+            query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+            target = query.get("target", ["manager"])[0]
+            payload = render_kiosk_shell(config, self.headers.get("Host", ""), target).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
         if path in {"/autodarts", "/camera"}:
             autodarts_url = detect_autodarts_url(config)
             if autodarts_url:
-                redirect(self, external_autodarts_url(self.headers.get("Host", "")))
+                redirect(self, "/app?target=manager")
                 return
             redirect(self, "/kiosk")
             return
