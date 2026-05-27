@@ -153,6 +153,15 @@ for line in logical_lines:
     except Exception:
         tokens = line.split()
     for idx, token in enumerate(tokens):
+        if token == "connect" and idx > 1 and idx + 1 < len(tokens) and tokens[idx - 1] == "wifi":
+            ssid = tokens[idx + 1]
+        elif token == "ssid" and idx + 1 < len(tokens):
+            ssid = tokens[idx + 1]
+        elif token in {"password", "wifi-sec.psk", "psk"} and idx + 1 < len(tokens):
+            password = tokens[idx + 1]
+        elif token == "wifi-sec.psk:" and idx + 1 < len(tokens):
+            password = tokens[idx + 1]
+    for idx, token in enumerate(tokens):
         if token in {"--ssid", "--wifi-ssid"} and idx + 1 < len(tokens):
             ssid = tokens[idx + 1]
         elif token.startswith("--ssid="):
@@ -330,17 +339,17 @@ existing_groups() {
   (IFS=,; echo "${groups[*]}")
 }
 
-GROUPS="$(existing_groups)"
+USER_GROUPS="$(existing_groups)"
 if ! id autodarts >/dev/null 2>&1; then
-  if [[ -n "$GROUPS" ]]; then
-    useradd -m -s /bin/bash -G "$GROUPS" autodarts
+  if [[ -n "$USER_GROUPS" ]]; then
+    useradd -m -s /bin/bash -G "$USER_GROUPS" autodarts
   else
     useradd -m -s /bin/bash autodarts
   fi
 else
   chsh -s /bin/bash autodarts || true
-  if [[ -n "$GROUPS" ]]; then
-    usermod -aG "$GROUPS" autodarts || true
+  if [[ -n "$USER_GROUPS" ]]; then
+    usermod -aG "$USER_GROUPS" autodarts || true
   fi
 fi
 echo "autodarts:autodarts" | chpasswd
