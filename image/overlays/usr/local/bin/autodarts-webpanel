@@ -262,7 +262,7 @@ def detect_autodarts_url(config):
     return ""
 
 
-def external_autodarts_url(request_host):
+def external_autodarts_url(request_host, path=""):
     host = (request_host or "").split(",", 1)[0].strip()
     if not host:
         host = socket.gethostname() or "autodarts-pi"
@@ -270,7 +270,17 @@ def external_autodarts_url(request_host):
         hostname = host.split("]", 1)[0] + "]"
     else:
         hostname = host.split(":", 1)[0]
-    return f"http://{hostname}:3180"
+    if path and not path.startswith("/"):
+        path = "/" + path
+    return f"http://{hostname}:3180{path}"
+
+
+def append_url_path(url, path):
+    if not path:
+        return url
+    if not path.startswith("/"):
+        path = "/" + path
+    return url.rstrip("/") + path
 
 
 def is_authenticated(handler):
@@ -330,6 +340,14 @@ def kiosk_shell_url(config, request_host, target):
     target = (target or "manager").strip().lower()
     if target in {"play", "autodarts-play"}:
         return config.get("play_url", "https://play.autodarts.io"), "Autodarts Play"
+    if target in {"config", "camera", "cameras", "kameras", "kamera-setup"}:
+        autodarts_url = detect_autodarts_url(config)
+        if autodarts_url:
+            host = (request_host or "").split(",", 1)[0].strip()
+            if host.startswith("127.0.0.1") or host.startswith("localhost"):
+                return append_url_path(autodarts_url, "/config"), "Kamera-Setup"
+            return external_autodarts_url(request_host, "/config"), "Kamera-Setup"
+        return external_autodarts_url(request_host, "/config"), "Kamera-Setup"
     if target in {"setup", "network"}:
         return "/setup", "Netzwerk-Setup"
     if target in {"admin"}:
@@ -375,9 +393,9 @@ def render_kiosk_shell(config, request_host, target):
     <button class="secondary" onclick="history.length > 1 ? history.back() : location.href='/kiosk'">Zurueck</button>
     <a href="/kiosk" target="_self">Home</a>
     <a href="/app?target=manager" target="_self">Manager</a>
+    <a href="/app?target=config" target="_self">Kamera-Setup</a>
     <a href="/app?target=play" target="_self">Play</a>
     <a href="/admin" target="_self">Admin</a>
-    <a class="secondary" href="{html.escape(frame_url)}" target="_self">Direkt</a>
   </nav>
   <iframe src="{html.escape(frame_url)}" title="{html.escape(label)}"></iframe>
 </body>
@@ -407,10 +425,12 @@ def render_kiosk_portal(config, request_host=""):
     fallback = html.escape(config.get("autodarts_fallback_url", config.get("play_url", "https://play.autodarts.io")))
     if autodarts_url:
         autodarts_action = f"""<a class="button" href="/app?target=manager">Kameras / Autodarts oeffnen</a>
+  <a class="button" href="/app?target=config">Kamera-Setup oeffnen</a>
   <a class="button" href="{html.escape(manager_url)}">Manager direkt oeffnen</a>
   <p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong>. Externer Zugriff: <strong>{html.escape(manager_url)}</strong></p>"""
     else:
         autodarts_action = f"""<a class="button" href="/app?target=manager">Autodarts Manager versuchen</a>
+  <a class="button" href="/app?target=config">Kamera-Setup versuchen</a>
   <a class="button" href="{html.escape(manager_url)}">Manager direkt oeffnen</a>
   <p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht bestaetigt erreichbar. Erwartete Adresse: <strong>{html.escape(manager_url)}</strong>. Diese Seite aktualisiert sich automatisch.</p>"""
     content = f"""<section class="panel">
@@ -624,7 +644,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in {"/autodarts", "/camera"}:
             autodarts_url = detect_autodarts_url(config)
             if autodarts_url:
-                redirect(self, "/app?target=manager")
+                redirect(self, "/app?target=config" if path == "/camera" else "/app?target=manager")
                 return
             redirect(self, "/kiosk")
             return
