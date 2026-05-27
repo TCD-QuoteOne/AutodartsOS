@@ -26,6 +26,14 @@ config_string() {
   awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
 }
 
+sanitize_hostname() {
+  local value="$1"
+  value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-//; s/-$//')"
+  value="${value:0:63}"
+  value="$(printf '%s' "$value" | sed -E 's/-$//')"
+  printf '%s' "${value:-autodarts-pi}"
+}
+
 set_config_string() {
   local key="$1"
   local value="$2"
@@ -383,12 +391,15 @@ import_imager_nm_connections
 
 CURRENT_HOSTNAME="$(hostnamectl --static status 2>/dev/null || hostname 2>/dev/null || true)"
 HOSTNAME="$(config_string hostname)"
+CURRENT_HOSTNAME="$(sanitize_hostname "$CURRENT_HOSTNAME")"
+HOSTNAME="$(sanitize_hostname "$HOSTNAME")"
 if [[ "$SEED_USED" != "true" && -n "$CURRENT_HOSTNAME" && "$CURRENT_HOSTNAME" != "raspberrypi" && "$CURRENT_HOSTNAME" != "$HOSTNAME" ]]; then
   set_config_string hostname "$CURRENT_HOSTNAME"
   ensure_hosts_entry "$CURRENT_HOSTNAME"
 elif [[ -n "$HOSTNAME" ]]; then
   hostnamectl set-hostname "$HOSTNAME" || true
   ensure_hosts_entry "$HOSTNAME"
+  systemctl restart avahi-daemon.service >/dev/null 2>&1 || true
 elif [[ -n "$CURRENT_HOSTNAME" ]]; then
   set_config_string hostname "$CURRENT_HOSTNAME"
   ensure_hosts_entry "$CURRENT_HOSTNAME"

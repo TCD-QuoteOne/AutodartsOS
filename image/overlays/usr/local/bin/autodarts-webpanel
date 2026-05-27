@@ -4,6 +4,7 @@ from pathlib import Path
 from http import cookies
 import html
 import json
+import re
 import secrets
 import socket
 import subprocess
@@ -53,6 +54,35 @@ def write_config(values):
             rendered = f'"{escaped}"'
         lines.append(f"{key} = {rendered}")
     CONFIG.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def sanitize_hostname(value):
+    value = str(value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9-]+", "-", value)
+    value = re.sub(r"-+", "-", value).strip("-")
+    if not value:
+        return "autodarts-pi"
+    return value[:63].strip("-") or "autodarts-pi"
+
+
+def ensure_hosts_entry(hostname):
+    if not hostname:
+        return
+    current = Path("/etc/hosts").read_text(encoding="utf-8", errors="replace") if Path("/etc/hosts").exists() else ""
+    lines = current.splitlines()
+    replaced = False
+    rendered = f"127.0.1.1\t{hostname}"
+    output = []
+    for line in lines:
+        if re.match(r"^\s*127\.0\.1\.1\s+", line):
+            if not replaced:
+                output.append(rendered)
+                replaced = True
+            continue
+        output.append(line)
+    if not replaced:
+        output.append(rendered)
+    Path("/etc/hosts").write_text("\n".join(output) + "\n", encoding="utf-8")
 
 
 def public_config(values):
@@ -426,12 +456,10 @@ def render_kiosk_portal(config, request_host=""):
     if autodarts_url:
         autodarts_action = f"""<a class="button" href="/app?target=manager">Kameras / Autodarts oeffnen</a>
   <a class="button" href="/app?target=config">Kamera-Setup oeffnen</a>
-  <a class="button" href="{html.escape(manager_url)}">Manager direkt oeffnen</a>
   <p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong>. Externer Zugriff: <strong>{html.escape(manager_url)}</strong></p>"""
     else:
         autodarts_action = f"""<a class="button" href="/app?target=manager">Autodarts Manager versuchen</a>
   <a class="button" href="/app?target=config">Kamera-Setup versuchen</a>
-  <a class="button" href="{html.escape(manager_url)}">Manager direkt oeffnen</a>
   <p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht bestaetigt erreichbar. Erwartete Adresse: <strong>{html.escape(manager_url)}</strong>. Diese Seite aktualisiert sich automatisch.</p>"""
     content = f"""<section class="panel">
   <h2>Autodarts Pi OS ist bereit</h2>
@@ -479,8 +507,11 @@ class Handler(BaseHTTPRequestHandler):
             wifi_password = data.get("wifi_password", [""])[0]
             wifi_country = data.get("wifi_country", ["DE"])[0].strip().upper()[:2] or "DE"
             if hostname:
+                hostname = sanitize_hostname(hostname)
                 config["hostname"] = hostname
                 run_command(["hostnamectl", "set-hostname", hostname])
+                ensure_hosts_entry(hostname)
+                run_command(["systemctl", "restart", "avahi-daemon.service"])
             if admin_password:
                 config["setup_admin_password"] = admin_password
                 reset_session_token()
