@@ -334,7 +334,7 @@ def render_page(title, content, refresh_seconds=None):
         ("manager", "/app?target=manager", "Kameras"),
         ("config", "/app?target=config", "Kamera-Setup"),
         ("play", "/app?target=play", "Autodarts Play"),
-        ("kofi", "https://co-v.com/autodaskos", "Ko-fi"),
+        ("kofi", "https://ko-fi.com/autodartsos", "Ko-fi"),
         ("setup", "/setup", "Netzwerk"),
         ("admin", "/admin", "Admin"),
     ]
@@ -637,7 +637,7 @@ def render_kiosk_shell(config, request_host, target):
     <a href="/app?target=manager" target="_self">Manager</a>
     <a href="/app?target=config" target="_self">Kamera-Setup</a>
     <a href="/app?target=play" target="_self">Play</a>
-    <a href="https://co-v.com/autodaskos" target="_blank" rel="noopener">Ko-fi</a>
+    <a href="https://ko-fi.com/autodartsos" target="_blank" rel="noopener">Ko-fi</a>
     <a href="/admin" target="_self">Admin</a>
   </nav>
   <iframe src="{html.escape(frame_url)}" title="{html.escape(label)}"></iframe>
