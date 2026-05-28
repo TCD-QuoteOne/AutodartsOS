@@ -2,6 +2,16 @@
 
 ![Autodarts Pi OS Boot-Splash](assets/boot/autodarts-pi-os-splash.png)
 
+## Projekt Unterstuetzen
+
+<a href="https://ko-fi.com/autodartsos">
+  <img src="assets/ui/kofi-logo.webp" alt="Ko-fi" width="72">
+</a>
+
+Wenn dir Autodarts Pi OS hilft oder du die weitere Entwicklung unterstuetzen moechtest:
+
+[Autodarts Pi OS auf Ko-fi unterstuetzen](https://ko-fi.com/autodartsos)
+
 Autodarts Pi OS ist ein inoffizielles Raspberry-Pi-OS-Lite-Image fuer Autodarts-Setups. Es ist als kleines Appliance-System gedacht: Image flashen, Raspberry Pi starten, Netzwerk einrichten und die weitere Konfiguration ueber das lokale Webpanel oder den angeschlossenen Bildschirm vornehmen.
 
 Ziel ist ein reproduzierbares Out-of-the-box-System fuer Raspberry-Pi-basierte Autodarts-Boards.
@@ -221,10 +231,6 @@ webpanel/    Hinweise zum lokalen Webpanel
 ## Hinweis Zum Namen
 
 `Autodarts Pi OS` ist als beschreibender Projektname fuer ein inoffizielles Raspberry-Pi-Image fuer Autodarts-Setups gedacht. Vor groesserer oeffentlicher Kommunikation sollte die Branding- und Trademark-Situation mit dem Autodarts-Projekt geklaert werden.
-
-## Projekt Unterstuetzen
-
-[Ko-fi: autodartsos](https://ko-fi.com/autodartsos)
 
 ## Lizenz
 
