@@ -334,6 +334,7 @@ def render_page(title, content, refresh_seconds=None):
         ("manager", "/app?target=manager", "Kameras"),
         ("config", "/app?target=config", "Kamera-Setup"),
         ("play", "/app?target=play", "Autodarts Play"),
+        ("kofi", "https://co-v.com/autodaskos", "Ko-fi"),
         ("setup", "/setup", "Netzwerk"),
         ("admin", "/admin", "Admin"),
     ]
@@ -407,7 +408,7 @@ def render_page(title, content, refresh_seconds=None):
     header p {{ margin: 9px 0 0; color: var(--muted); font-size: 14px; }}
     .tabs {{
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 8px;
       margin: 0 0 14px;
       padding: 8px;
@@ -636,6 +637,7 @@ def render_kiosk_shell(config, request_host, target):
     <a href="/app?target=manager" target="_self">Manager</a>
     <a href="/app?target=config" target="_self">Kamera-Setup</a>
     <a href="/app?target=play" target="_self">Play</a>
+    <a href="https://co-v.com/autodaskos" target="_blank" rel="noopener">Ko-fi</a>
     <a href="/admin" target="_self">Admin</a>
   </nav>
   <iframe src="{html.escape(frame_url)}" title="{html.escape(label)}"></iframe>
