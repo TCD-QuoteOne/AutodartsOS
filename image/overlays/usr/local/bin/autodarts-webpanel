@@ -449,7 +449,6 @@ def render_kiosk_portal(config, request_host=""):
     net = network_status()
     autodarts_url = detect_autodarts_url(config)
     manager_url = external_autodarts_url(request_host)
-    candidates = ", ".join(html.escape(url) for url in autodarts_url_candidates(config))
     primary_ip = html.escape(net.get("primary_ip") or "noch keine IP")
     install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
     fallback = html.escape(config.get("autodarts_fallback_url", config.get("play_url", "https://play.autodarts.io")))
@@ -466,7 +465,6 @@ def render_kiosk_portal(config, request_host=""):
   <p>Diese lokale Seite bleibt auf Bildschirm und Handy erreichbar. Von hier aus startest du die Autodarts- und Kamera-Einrichtung, sobald der lokale Dienst bereit ist.</p>
   <p>Zugewiesene IP: <strong>{primary_ip}</strong></p>
   <p>Installationsstatus: <strong>{html.escape(install_state)}</strong></p>
-  <p>Gepruefte lokale Ziele: <strong>{candidates}</strong></p>
   {autodarts_action}
   <a class="button" href="/kiosk">Status aktualisieren</a>
   <a class="button" href="/admin">Admin</a>
