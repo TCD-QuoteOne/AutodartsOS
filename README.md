@@ -247,7 +247,7 @@ Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/.
 
 ### Vorab: Raspberry Pi Imager
 
-Autodarts Pi OS ist mit den normalen Raspberry-Pi-Imager-Anpassungen kompatibel. Du kannst im Imager also bereits WLAN, Hostname und SSH hinterlegen. Beim ersten Boot uebernimmt Raspberry Pi OS diese Werte wie beim Standard-Image. Autodarts Pi OS fuehrt eine vorhandene Imager-`firstrun.sh` notfalls selbst aus, aktiviert SSH bei vorhandener `ssh`/`ssh.txt`-Bootdatei und erkennt anschliessend eine funktionierende vorkonfigurierte Netzwerkverbindung. Dann wird der lokale Setup-Modus automatisch abgeschlossen.
+Autodarts Pi OS ist mit den normalen Raspberry-Pi-Imager-Anpassungen kompatibel. Du kannst im Imager also bereits WLAN, Hostname und SSH hinterlegen. Beim ersten Boot importiert Autodarts Pi OS diese Werte direkt, aktiviert SSH bei vorhandener `ssh`/`ssh.txt`-Bootdatei und deaktiviert danach den Raspberry-Pi-Imager-Erststart-Hook. Dadurch kann die Imager-`firstrun.sh` nach einem Neustart nicht erneut in den Systemstart springen. Wenn die vorkonfigurierte Netzwerkverbindung funktioniert, wird der lokale Setup-Modus automatisch abgeschlossen.
 
 Wichtig: Wenn du im Imager direkt `Use custom` und danach die Autodarts-Pi-OS-Image-Datei waehlst, sind die Anpassungen ausgegraut. Das ist ein Imager-Metadaten-Thema. Fuer Releases ist die Manifestdatei bereits im GitHub-Release enthalten. Nur bei einem lokalen Test-Image erzeugst du selbst ein Manifest:
 

@@ -24,6 +24,7 @@ fi
 CHROME_USER_DIR="$HOME/.config/chromium-kiosk"
 CHROME_CACHE_DIR="$HOME/.cache/chromium-kiosk"
 mkdir -p "$CHROME_USER_DIR" "$CHROME_CACHE_DIR"
+chmod 700 "$CHROME_USER_DIR" "$CHROME_CACHE_DIR" || true
 
 while true; do
   "$BROWSER" \
@@ -31,10 +32,13 @@ while true; do
     --user-data-dir="$CHROME_USER_DIR" \
     --disk-cache-dir="$CHROME_CACHE_DIR" \
     --no-first-run \
+    --no-default-browser-check \
     --disable-infobars \
     --disable-session-crashed-bubble \
+    --disable-dev-shm-usage \
     --disable-features=TranslateUI \
     --ozone-platform=x11 \
+    --password-store=basic \
     --autoplay-policy=no-user-gesture-required \
     --noerrdialogs \
     --check-for-update-interval=31536000 \

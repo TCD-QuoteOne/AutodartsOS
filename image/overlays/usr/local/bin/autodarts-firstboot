@@ -94,8 +94,51 @@ write_firstboot_status() {
 EOF
 }
 
+disable_imager_firstrun() {
+  local candidate target
+
+  for candidate in /boot/firmware/firstrun.sh /boot/firstrun.sh; do
+    if [[ -f "$candidate" ]]; then
+      target="${candidate}.autodarts-disabled"
+      mv "$candidate" "$target" 2>/dev/null || rm -f "$candidate" || true
+      echo "$(date -Is) Disabled Raspberry Pi Imager firstrun script at $candidate." >> "$FIRSTBOOT_LOG"
+    fi
+  done
+
+  for candidate in /boot/firmware/cmdline.txt /boot/cmdline.txt; do
+    [[ -f "$candidate" ]] || continue
+    python3 - "$candidate" <<'PY' 2>/dev/null || true
+import sys
+
+path = sys.argv[1]
+text = open(path, encoding="utf-8", errors="replace").read().strip()
+if not text:
+    sys.exit(0)
+
+drop_prefixes = (
+    "systemd.run=",
+    "systemd.run_success_action=",
+    "systemd.run_failure_action=",
+)
+drop_values = {
+    "systemd.unit=kernel-command-line.target",
+}
+tokens = []
+changed = False
+for token in text.split():
+    if token in drop_values or any(token.startswith(prefix) for prefix in drop_prefixes):
+        changed = True
+        continue
+    tokens.append(token)
+
+if changed:
+    open(path, "w", encoding="utf-8").write(" ".join(tokens) + "\n")
+PY
+  done
+}
+
 run_imager_firstrun_fallback() {
-  local rc firstrun
+  local firstrun
   firstrun=""
   for candidate in /boot/firmware/firstrun.sh /boot/firstrun.sh; do
     if [[ -f "$candidate" ]]; then
@@ -106,20 +149,10 @@ run_imager_firstrun_fallback() {
   [[ -n "$firstrun" ]] || return 0
   [[ ! -f "$IMAGER_FIRSTRUN_MARKER" ]] || return 0
 
-  echo "$(date -Is) Raspberry Pi Imager firstrun.sh found; running compatibility fallback." >> "$FIRSTBOOT_LOG"
+  echo "$(date -Is) Raspberry Pi Imager firstrun.sh found; Autodarts Pi OS imports supported values and disables the upstream first-run hook." >> "$FIRSTBOOT_LOG"
   touch "$IMAGER_FIRSTRUN_MARKER"
-  chmod +x "$firstrun" || true
-  set +e
-  bash "$firstrun" >> "$FIRSTBOOT_LOG" 2>&1
-  rc=$?
-  set -e
-
-  if [[ "$rc" -eq 0 ]]; then
-    write_firstboot_status "ok" "Raspberry Pi Imager firstrun.sh wurde ausgefuehrt."
-  else
-    write_firstboot_status "warning" "Raspberry Pi Imager firstrun.sh konnte nicht erfolgreich ausgefuehrt werden. Autodarts Pi OS startet den normalen Setup-Fallback."
-    echo "$(date -Is) Raspberry Pi Imager firstrun.sh failed with code $rc." >> "$FIRSTBOOT_LOG"
-  fi
+  disable_imager_firstrun
+  write_firstboot_status "ok" "Raspberry Pi Imager Anpassungen wurden uebernommen und der Imager-Erststart wurde deaktiviert."
 }
 
 import_imager_firstrun_credentials() {
@@ -395,14 +428,18 @@ CURRENT_HOSTNAME="$(sanitize_hostname "$CURRENT_HOSTNAME")"
 HOSTNAME="$(sanitize_hostname "$HOSTNAME")"
 if [[ "$SEED_USED" != "true" && -n "$CURRENT_HOSTNAME" && "$CURRENT_HOSTNAME" != "raspberrypi" && "$CURRENT_HOSTNAME" != "$HOSTNAME" ]]; then
   set_config_string hostname "$CURRENT_HOSTNAME"
+  hostnamectl set-hostname "$CURRENT_HOSTNAME" || true
   ensure_hosts_entry "$CURRENT_HOSTNAME"
+  systemctl restart avahi-daemon.service >/dev/null 2>&1 || true
 elif [[ -n "$HOSTNAME" ]]; then
   hostnamectl set-hostname "$HOSTNAME" || true
   ensure_hosts_entry "$HOSTNAME"
   systemctl restart avahi-daemon.service >/dev/null 2>&1 || true
 elif [[ -n "$CURRENT_HOSTNAME" ]]; then
   set_config_string hostname "$CURRENT_HOSTNAME"
+  hostnamectl set-hostname "$CURRENT_HOSTNAME" || true
   ensure_hosts_entry "$CURRENT_HOSTNAME"
+  systemctl restart avahi-daemon.service >/dev/null 2>&1 || true
 fi
 
 if nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F ':' '$2 == "802-11-wireless" && $1 != "Autodarts-Setup" { found=1 } END { exit found ? 0 : 1 }'; then
