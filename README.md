@@ -1,91 +1,136 @@
 # Autodarts Pi OS
 
-![Autodarts Pi OS boot splash](assets/boot/autodarts-pi-os-splash.png)
+![Autodarts Pi OS Boot-Splash](assets/boot/autodarts-pi-os-splash.png)
 
-Autodarts Pi OS ist ein Open-Source-Projekt für ein Raspberry-Pi-OS-Lite-basiertes Appliance-Image, das ein Autodarts-Setup möglichst direkt nach dem Flashen startklar macht.
+Autodarts Pi OS ist ein inoffizielles Raspberry-Pi-OS-Lite-Image fuer Autodarts-Setups. Es ist als kleines Appliance-System gedacht: Image flashen, Raspberry Pi starten, Netzwerk einrichten und die weitere Konfiguration ueber das lokale Webpanel oder den angeschlossenen Bildschirm vornehmen.
 
-Ziel ist kein einmalig manuell eingerichteter Pi, sondern ein reproduzierbares System:
+Ziel ist ein reproduzierbares Out-of-the-box-System fuer Raspberry-Pi-basierte Autodarts-Boards.
 
-- eigener Boot-Screen mit Autodarts-Pi-OS-Splash
-- Kiosk-Ausgabe auf angeschlossenem Monitor mit lokalem Autodarts-Status und Weiterleitung zum Autodarts-Konfigurationsmodus
-- automatische Autodarts-Installation beim ersten Boot über den offiziellen Installer
-- lokaler Setup-Hub beim ersten Start statt Raspberry-Pi-OS-Userdialog
-- Setup-Hotspot `Autodarts-Setup` mit `http://auto.setup.go`
-- Konsolen-Autologin auf `tty1`, das den Kiosk im Lite-Image startet
-- `systemd`-Services für First Boot, Runtime, Watchdog und Webpanel
-- lokale Konfiguration über einfache TOML-Dateien
-- Hardwareprofile für Raspberry Pi 4/5 mit USB-Kamera
-- Image-Overlay für `pi-gen`
-- Validierungsskripte für schnelle Smoke-Tests
+## Funktionen
+
+- Raspberry Pi OS Lite als Basis
+- Image-Build ueber `pi-gen`
+- kein Raspberry-Pi-OS-Benutzerdialog beim ersten Start
+- Raspberry-Pi-Imager-Unterstuetzung fuer Hostname, WLAN und SSH
+- Setup-Hotspot, wenn noch kein Netzwerk verfuegbar ist
+- lokales Webpanel fuer Setup, Status, Admin und Recovery
+- Kiosk-Ausgabe auf angeschlossenem Monitor
+- Integration des offiziellen Autodarts-Installers von `https://get.autodarts.io`
+- direkter Einstieg in den Autodarts Manager und die Kamera-Konfiguration
+- Recovery-Hotspot und Factory Reset
+- Raspberry-Pi-Imager-Manifest fuer Releases
 
 ## Status
 
-Das Projekt ist aktuell eine erste, saubere Grundlage. Es enthält noch kein final gebautes Raspberry-Pi-Image und installiert noch nicht automatisch die eigentliche Autodarts-Anwendung. Der nächste technische Schritt ist ein echter `pi-gen`-Build unter Linux oder WSL.
+Autodarts Pi OS ist aktuell ein experimentelles, aber bereits nutzbares Appliance-Image. Getestet wurden unter anderem:
 
-## Schnellstart Für Entwickler
+- WLAN-Uebergabe aus Raspberry Pi Imager
+- Fallback in den Setup-Hotspot
+- lokale Einrichtung ueber Kiosk
+- Zugriff auf den Autodarts Manager ueber Port `3180`
+- GitHub-Release-Download ueber Imager-Manifest
+- Reboot-Verhalten nach erfolgreichem Setup
 
-### 1. Repository prüfen
+Das Projekt ist kein offizielles Autodarts-Projekt.
 
-Unter Windows/PowerShell:
+## Einrichtung Fuer Nutzer
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\validate.ps1
-```
+### 1. Image flashen
 
-Unter Linux/WSL:
+Lade aus dem GitHub-Release das Image und die passende `.rpi-imager-manifest`-Datei herunter.
 
-```bash
-./tools/validate.sh
-```
+Wenn du WLAN, Hostname oder SSH direkt im Raspberry Pi Imager setzen willst, oeffne die `.rpi-imager-manifest`-Datei mit Raspberry Pi Imager und waehle danach `Autodarts Pi OS Lite` aus der Betriebssystemliste.
 
-### 2. pi-gen vorbereiten
+Wichtig: Wenn du nur `Use custom` nutzt und direkt die Image-Datei auswaehlst, kann der Imager das Image zwar schreiben, aber die Anpassungen fuer WLAN, Hostname und SSH koennen ausgegraut sein.
 
-`pi-gen` muss auf einem Linux-Host oder in WSL vorhanden sein:
+### 2. Optionale Imager-Anpassungen
 
-```bash
-git clone https://github.com/RPi-Distro/pi-gen.git
-export PI_GEN_DIR="$PWD/pi-gen"
-```
+Im Raspberry Pi Imager kannst du setzen:
 
-### 3. Autodarts-Pi-OS-Stage erzeugen
+- Hostname
+- WLAN-Name und WLAN-Passwort
+- Sprache/Region
+- SSH
 
-Im Autodarts-Pi-OS-Repository:
+Autodarts Pi OS importiert diese Werte beim ersten Boot und deaktiviert danach den Raspberry-Pi-Imager-Erststart-Hook. Dadurch springt der Imager-Erststart nach einem Reboot nicht erneut in den Systemstart.
 
-```bash
-./image/build.sh
-```
+### 3. Erster Start
 
-Das Skript legt in `pi-gen` eine zusätzliche Stage namens `stage2-autodarts-pi-os` an. Sie baut direkt auf Raspberry Pi OS Lite auf, kopiert Services, Konfiguration, Webpanel und Boot-Screen in das Root-Dateisystem-Overlay und exportiert nur das Autodarts-Pi-OS-Lite-Appliance-Image.
-
-### 4. pi-gen konfigurieren
-
-```bash
-cp /opt/AutodartsOS/image/pi-gen-config.example /opt/pi-gen/config
-```
-
-Die Beispielkonfiguration setzt einen temporären Appliance-User:
+Wenn die Netzwerkdaten stimmen, verbindet sich der Pi direkt mit deinem Netzwerk. Das Webpanel ist danach erreichbar unter:
 
 ```text
-FIRST_USER_NAME=autodarts
-FIRST_USER_PASS=autodarts
-DISABLE_FIRST_BOOT_USER_RENAME=1
+http://<hostname>.local
+http://<pi-ip>
 ```
 
-Der Linux-Nutzer ist ein interner Appliance-User. Die eigentliche Einrichtung laeuft nicht ueber den Linux-Login, sondern ueber die lokale Weboberflaeche. Im Setup-Hotspot ist sie unter `http://auto.setup.go` erreichbar. Im normalen Netzwerk ist sie unter `http://autodarts-pi.local` oder `http://<pi-ip>` erreichbar.
-
-Die Beispielkonfiguration begrenzt den Build auf:
+Der Standard-Hostname ist:
 
 ```text
-STAGE_LIST="stage0 stage1 stage2 stage2-autodarts-pi-os"
+autodarts-pi
 ```
 
-Dadurch werden keine normalen Desktop- oder Full-Images erzeugt.
+Wenn kein funktionierendes Netzwerk vorhanden ist, startet der Setup-Hotspot:
 
-### 5. Wichtigster Workflow: Neues Image bauen und veroeffentlichen
+```text
+WLAN: Autodarts-Setup
+Passwort: autodarts
+Setup-Adresse: http://auto.setup.go
+Fallback-IP: http://10.42.0.1
+```
 
-Das ist der wichtigste Ablauf fuer ein neues Autodarts-Pi-OS-Image. Vor jedem Release nur die Versionsnummer anpassen, zum Beispiel `v0.1.18`, `v0.1.19` usw.
+Falls ein Handy trotz verbundenem Hotspot keine Seite oeffnet, mobile Daten fuer die Einrichtung kurz deaktivieren oder das WLAN als Netzwerk ohne Internet akzeptieren.
 
-#### 1. Image bauen
+### 4. Webpanel
+
+Das Webpanel bietet:
+
+- Uebersicht
+- Kameras / Autodarts
+- Kamera-Setup
+- Autodarts Play
+- Netzwerk-Setup
+- Adminbereich
+- Logs und Systemstatus
+- Ko-fi-Link
+
+Der lokale Autodarts Manager ist vorgesehen unter:
+
+```text
+http://<hostname>.local:3180
+http://<pi-ip>:3180
+```
+
+Die Kamera-Konfiguration ist direkt erreichbar unter:
+
+```text
+http://<hostname>.local:3180/config
+```
+
+## Recovery Und Reset
+
+Nach erfolgreichem Setup bleibt der Zustand `configured` erhalten. Ein spaeterer Internet- oder WLAN-Ausfall startet den Setup-Hotspot nicht automatisch neu. Das verhindert, dass ein bereits eingerichtetes Geraet bei einem Router- oder Providerproblem wieder in den Factory-Modus faellt.
+
+Setup-Modus bewusst wieder aktivieren:
+
+1. Im Adminbereich `Recovery-Hotspot starten` verwenden.
+2. Oder auf der Boot-Partition eine leere Datei mit diesem Namen anlegen:
+
+```text
+autodarts-recovery
+```
+
+Factory Reset ausloesen:
+
+1. Im Adminbereich den Factory Reset starten.
+2. Oder auf der Boot-Partition eine leere Datei mit diesem Namen anlegen:
+
+```text
+autodarts-factory-reset
+```
+
+## Build Workflow
+
+Der Release-Build laeuft auf einem Linux-System mit `pi-gen`, zum Beispiel unter `/opt/pi-gen`.
 
 ```bash
 cd /opt/AutodartsOS
@@ -95,18 +140,11 @@ export PI_GEN_DIR="/opt/pi-gen"
 RELEASE_VERSION="v0.1.18" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
 ```
 
-Der Build erzeugt im `deploy`-Ordner von `pi-gen` nur die Lite-Version:
+Der Build erzeugt nur die Lite-Version des Appliance-Images.
 
-```text
-AutodartsPiOS-...-lite.img.xz
-AutodartsPiOS-...-lite.img.rpi-imager-manifest
-```
+## Image Pruefen
 
-`BUNDLE_AUTODARTS_INSTALLER=true` bettet den aktuellen Installer von `https://get.autodarts.io` in das Image ein. Die Autodarts-Installation selbst laeuft weiterhin beim ersten Boot auf dem Raspberry Pi, weil dort Hardware, Systemdienste und Architektur passen. Falls der Installer spaeter weitere Pakete oder Releases nachlaedt, braucht der Pi dafuer weiterhin Netzwerk.
-
-`RELEASE_VERSION` sorgt dafuer, dass die Manifestdatei nicht auf den lokalen Build-Server-Pfad zeigt, sondern auf die spaetere GitHub-Release-URL des Image-Artefakts.
-
-#### 2. Image und Manifest pruefen
+Vor jedem Release Image und Manifest pruefen:
 
 ```bash
 VERSION="v0.1.18"
@@ -117,9 +155,11 @@ MANIFEST_FILE="${IMAGE_FILE%.xz}.rpi-imager-manifest"
 /opt/AutodartsOS/tools/verify-deploy-image.sh "$IMAGE_FILE" "$MANIFEST_FILE"
 ```
 
-Der Check stellt sicher, dass Image und Manifest zusammenpassen und die erste Partition im entpackten Image wie eine FAT-Bootpartition aussieht. Die `extract_*`-Werte sind wichtig, damit Raspberry Pi Imager die entpackte Image-Groesse kennt und der Fortschritt beim Schreiben nicht ueber 100 Prozent laeuft.
+Die Pruefung stellt sicher, dass Manifest, Hashes, entpackte Image-Groesse und FAT-Bootpartition zusammenpassen.
 
-#### 3. Wenn gruen, hochladen
+## GitHub Release Erstellen
+
+Wenn die Pruefung gruen ist:
 
 ```bash
 gh release create "$VERSION" \
@@ -127,10 +167,10 @@ gh release create "$VERSION" \
   "$MANIFEST_FILE" \
   --repo TCD-QuoteOne/AutodartsOS \
   --title "Autodarts Pi OS $VERSION" \
-  --notes "Autodarts Pi OS Lite release with fixed Autodarts user-home installation."
+  --notes "Autodarts Pi OS Lite release with bundled Autodarts installer support."
 ```
 
-Falls das Release schon existiert und nur neue Dateien hochgeladen werden sollen:
+Wenn das Release bereits existiert und die Dateien ersetzt werden sollen:
 
 ```bash
 gh release upload "$VERSION" \
@@ -140,339 +180,52 @@ gh release upload "$VERSION" \
   --clobber
 ```
 
-Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die Image-Datei direkt ueber `Use custom`.
+## Lokale Validierung
 
-Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt oder `extract_size` / `extract_sha256` fehlen, wurde es falsch oder mit einem alten Generator erzeugt. Dann vor dem Upload neu erzeugen:
-
-```bash
-"$PWD/tools/create-imager-manifest.sh" \
-  --image "$IMAGE_FILE" \
-  --output "$MANIFEST_FILE" \
-  --url "$EXPECTED_URL"
-```
-
-### 6. Detailhinweise: Image bauen
-
-Danach wird der eigentliche Image-Build wie üblich über `pi-gen` ausgeführt. Die genaue `pi-gen`-Konfiguration wird im nächsten Projektschritt festgezurrt.
-
-Fuer einen kompletten Release-Build inklusive optional eingebettetem Autodarts-Installer und automatisch erzeugter Raspberry-Pi-Imager-Manifestdatei:
-
-```bash
-cd /opt/AutodartsOS
-git pull origin main
-export PI_GEN_DIR="/opt/pi-gen"
-RELEASE_VERSION="v0.1.16" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
-```
-
-BUNDLE_AUTODARTS_INSTALLER=true bettet den aktuellen Installer von `https://get.autodarts.io` in das Image ein. Die Autodarts-Installation selbst laeuft weiterhin beim ersten Boot auf dem Raspberry Pi, weil dort Hardware, Systemdienste und Architektur passen. Falls der Installer spaeter weitere Pakete oder Releases nachlaedt, braucht der Pi dafuer weiterhin Netzwerk.
-
-`RELEASE_VERSION` sorgt dafuer, dass die Manifestdatei nicht auf den lokalen Build-Server-Pfad zeigt, sondern auf die spaetere GitHub-Release-URL des Image-Artefakts. Danach liegen im `deploy`-Ordner von `pi-gen` zwei wichtige Dateien:
-
-```text
-AutodartsPiOS-...-lite.img.xz
-AutodartsPiOS-...-lite.img.rpi-imager-manifest
-```
-
-Die Manifestdatei mit Raspberry Pi Imager oeffnen, dann `Autodarts Pi OS Lite` aus der OS-Liste waehlen. So sind WLAN, Hostname und SSH im Imager aktiv. Das Release nutzt `.img.xz`, weil das dem offiziellen Raspberry-Pi-Image-Format entspricht und fuer den Imager robuster ist als ZIP.
-
-### 7. Detailhinweise: GitHub-Release erstellen
-
-Nach einem erfolgreichen Build werden die Release-Dateien aus dem `deploy`-Ordner von `pi-gen` in ein GitHub-Release geladen. Relevant sind immer das `.img.xz`-Image und die passende Raspberry-Pi-Imager-Manifestdatei.
-
-Beispiel fuer Version `v0.1.16`:
-
-```bash
-cd /opt/AutodartsOS
-git pull origin main
-
-VERSION="v0.1.16"
-DEPLOY_DIR="/opt/pi-gen/deploy"
-IMAGE_FILE="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.img.xz | head -n 1)"
-MANIFEST_FILE="${IMAGE_FILE%.xz}.rpi-imager-manifest"
-EXPECTED_URL="https://github.com/TCD-QuoteOne/AutodartsOS/releases/download/${VERSION}/$(basename "$IMAGE_FILE")"
-
-ls -lh "$IMAGE_FILE" "$MANIFEST_FILE"
-grep -F "\"url\": \"$EXPECTED_URL\"" "$MANIFEST_FILE"
-grep -E '"extract_size"|"extract_sha256"|"image_download_size"|"image_download_sha256"' "$MANIFEST_FILE"
-```
-
-Wenn beide Dateien angezeigt werden, `grep` die GitHub-URL findet und das Manifest `extract_size` sowie `extract_sha256` enthaelt, Release erstellen. Diese `extract_*`-Werte sind wichtig, damit Raspberry Pi Imager die entpackte Image-Groesse kennt und der Fortschritt beim Schreiben nicht ueber 100 Prozent laeuft.
-
-Vor dem Upload sollte das Image einmal geprueft werden. Der Check stellt sicher, dass Image und Manifest zusammenpassen und die erste Partition im entpackten Image wie eine FAT-Bootpartition aussieht:
-
-```bash
-/opt/AutodartsOS/tools/verify-deploy-image.sh "$IMAGE_FILE" "$MANIFEST_FILE"
-```
-
-```bash
-gh release create "$VERSION" \
-  "$IMAGE_FILE" \
-  "$MANIFEST_FILE" \
-  --repo TCD-QuoteOne/AutodartsOS \
-  --title "Autodarts Pi OS $VERSION" \
-  --notes "Autodarts Pi OS Lite release. Open the .rpi-imager-manifest file with Raspberry Pi Imager to enable WiFi, hostname and SSH customisation."
-```
-
-Falls das Release schon existiert und nur neue Dateien hochgeladen werden sollen:
-
-```bash
-gh release upload "$VERSION" \
-  "$IMAGE_FILE" \
-  "$MANIFEST_FILE" \
-  --repo TCD-QuoteOne/AutodartsOS \
-  --clobber
-```
-
-Wichtig: Nutzer sollen aus dem GitHub-Release beide Dateien herunterladen. Fuer Raspberry-Pi-Imager-Anpassungen wird die `.rpi-imager-manifest` geoeffnet, nicht die Image-Datei direkt ueber `Use custom`.
-
-Wenn das Manifest versehentlich eine lokale URL wie `file:///opt/pi-gen/deploy/...` enthaelt oder `extract_size` / `extract_sha256` fehlen, wurde es falsch oder mit einem alten Generator erzeugt. Dann vor dem Upload neu erzeugen:
-
-```bash
-"$PWD/tools/create-imager-manifest.sh" \
-  --image "$IMAGE_FILE" \
-  --output "$MANIFEST_FILE" \
-  --url "$EXPECTED_URL"
-```
-
-## Geplanter Out-of-the-box-Ablauf
-
-1. Image auf microSD oder SSD flashen.
-2. Optional `autodarts-config.toml` auf die Boot-Partition legen.
-3. Raspberry Pi starten.
-4. First-Boot-Service übernimmt Hostname und Grundkonfiguration.
-5. Runtime-, Watchdog-, Network- und Webpanel-Service starten automatisch.
-6. Wenn kein Ethernet und kein funktionierendes WLAN verbunden ist, startet der Setup-Hotspot.
-
-## Setup-Ablauf Für Nutzer
-
-### Vorab: Raspberry Pi Imager
-
-Autodarts Pi OS ist mit den normalen Raspberry-Pi-Imager-Anpassungen kompatibel. Du kannst im Imager also bereits WLAN, Hostname und SSH hinterlegen. Beim ersten Boot importiert Autodarts Pi OS diese Werte direkt, aktiviert SSH bei vorhandener `ssh`/`ssh.txt`-Bootdatei und deaktiviert danach den Raspberry-Pi-Imager-Erststart-Hook. Dadurch kann die Imager-`firstrun.sh` nach einem Neustart nicht erneut in den Systemstart springen. Wenn die vorkonfigurierte Netzwerkverbindung funktioniert, wird der lokale Setup-Modus automatisch abgeschlossen.
-
-Wichtig: Wenn du im Imager direkt `Use custom` und danach die Autodarts-Pi-OS-Image-Datei waehlst, sind die Anpassungen ausgegraut. Das ist ein Imager-Metadaten-Thema. Fuer Releases ist die Manifestdatei bereits im GitHub-Release enthalten. Nur bei einem lokalen Test-Image erzeugst du selbst ein Manifest:
+Windows:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\create-imager-manifest.ps1 -ImagePath "C:\Pfad\zu\AutodartsPiOS-lite.img"
+powershell -ExecutionPolicy Bypass -File .\tools\validate.ps1
 ```
 
-Dann:
+Linux:
 
-1. Raspberry Pi Imager schliessen.
-2. Die erzeugte Datei `imager\autodarts-pi-os-local.rpi-imager-manifest` per Doppelklick oeffnen.
-3. Falls Windows fragt, mit `Raspberry Pi Imager` oeffnen.
-4. Im Imager `Autodarts Pi OS Lite` aus der OS-Liste waehlen.
-5. Erst danach Speicherkarte waehlen und unter `Anpassung` WLAN, Hostname und SSH setzen.
-
-Nicht die Image-Datei direkt ueber `Use custom` auswaehlen. Dann fehlen die Metadaten und die Anpassungen bleiben ausgegraut.
-
-Wenn die im Imager eingetragenen WLAN-Daten falsch sind oder das WLAN nicht erreichbar ist, bleibt Autodarts Pi OS im Factory-Setup und startet den Hotspot `Autodarts-Setup`. Dann kannst du die Daten wie unten beschrieben ueber `http://auto.setup.go` korrigieren.
-
-### Variante A: Einrichtung per Handy oder Laptop über Setup-Hotspot
-
-Wenn der Raspberry Pi noch kein Netzwerk hat, öffnet Autodarts Pi OS automatisch ein eigenes WLAN:
-
-```text
-WLAN-Name: Autodarts-Setup
-Passwort: autodarts
-```
-
-Danach:
-
-1. Am Handy oder Laptop mit `Autodarts-Setup` verbinden.
-2. Viele Handys zeigen danach automatisch eine Anmeldeseite fuer das WLAN an. Falls diese Seite erscheint, dort mit der Einrichtung fortfahren.
-3. Wenn keine Anmeldeseite erscheint, Browser oeffnen.
-4. Diese Adresse aufrufen:
-
-```text
-http://auto.setup.go
-```
-
-Falls die Adresse am Handy nicht sofort aufloest, diese feste Hotspot-IP verwenden:
-
-```text
-http://10.42.0.1
-```
-
-Falls dein Handy trotz verbundenem `Autodarts-Setup` weiterhin meldet, dass die Seite nicht erreichbar ist, mobile Daten fuer die Einrichtung kurz deaktivieren oder in den WLAN-Details `Dieses WLAN trotzdem verwenden` waehlen. Neuere Images leiten typische Android-, iOS- und Windows-Captive-Portal-Pruefungen automatisch auf die Setup-Seite um.
-
-5. Mit dem Setup-Passwort einloggen:
-
-```text
-autodarts
-```
-
-6. Hostname, neues Setup-Passwort und optional WLAN-Daten eintragen.
-7. `Speichern und anwenden` druecken.
-8. Danach wird die Verbindung zur Setup-Seite eventuell kurz getrennt. Das ist normal: Der Pi schaltet den Setup-Hotspot kurz aus und testet das eingetragene Heim-WLAN.
-9. Wenn das WLAN erfolgreich verbunden wurde, bleibt der Setup-Hotspot aus und das Setup wird dauerhaft abgeschlossen. Verbinde dein Handy oder deinen Laptop dann mit demselben Heim-WLAN und oeffne `http://autodarts-pi.local` oder die IP-Adresse des Pi.
-10. Wenn WLAN-Name oder Passwort falsch sind oder keine Verbindung zustande kommt, startet der Hotspot `Autodarts-Setup` automatisch wieder. Verbinde dich erneut damit, oeffne `http://auto.setup.go` und korrigiere die Daten.
-11. Sobald Ethernet oder WLAN verbunden ist, kann `Setup abschliessen` zusaetzlich manuell gedrueckt werden, falls die automatische Uebernahme noch nicht erfolgt ist.
-12. Danach startet der Kiosk auf einer lokalen Autodarts-Pi-OS-Portal-Seite. Diese Seite zeigt IP, Dienste und Installationsstatus. Sobald der lokale Autodarts-Dienst bereit ist, erscheint dort der Button `Kameras / Autodarts oeffnen`.
-
-Nach einem erfolgreichen Setup merkt sich Autodarts Pi OS den Zustand `configured`. Ein späterer Internet- oder WLAN-Ausfall startet den Setup-Hotspot dann nicht automatisch erneut.
-
-Hinweis: Bei erfolgreicher WLAN-Uebernahme startet der Pi automatisch neu, damit der Kiosk danach mit dem finalen Netzwerkzustand und dem lokalen Autodarts-Konfigurationsmodus startet.
-
-### Variante B: Einrichtung per Netzwerkkabel
-
-Wenn ein LAN-Kabel angeschlossen ist, bekommt der Pi normalerweise automatisch eine IP-Adresse per DHCP.
-
-Dann im Browser aufrufen:
-
-```text
-http://autodarts-pi.local
-```
-
-Falls `.local` im Netzwerk nicht auflöst, die IP aus dem Router verwenden:
-
-```text
-http://<pi-ip>
-```
-
-WLAN kann in diesem Fall leer bleiben. Wenn Ethernet verbunden ist, wird das Setup beim Speichern automatisch dauerhaft abgeschlossen. Danach startet der Kiosk auf der lokalen Autodarts-Pi-OS-Portal-Seite.
-
-### Variante C: Einrichtung direkt am Monitor
-
-Wenn Monitor und Tastatur angeschlossen sind, startet der Pi lokal in den Setup-Kiosk:
-
-```text
-http://localhost/setup
-```
-
-Das ist hilfreich, wenn weder Handy-Hotspot-Setup noch Ethernet verfügbar sind.
-
-## Admin-Oberfläche Und Recovery
-
-Nach abgeschlossenem Setup ist die Weboberfläche im normalen Netzwerk erreichbar:
-
-```text
-http://autodarts-pi.local
-```
-
-oder per IP-Adresse:
-
-```text
-http://<pi-ip>
-```
-
-Die Startseite fuehrt dann in das lokale Portal. Dort sind IP, Dienste, Installationsstatus und der Button zur Autodarts-/Kamera-Einrichtung sichtbar. Der Adminbereich bleibt erreichbar.
-
-Direkte Adressen:
-
-```text
-http://autodarts-pi.local/kiosk
-http://autodarts-pi.local/admin
-http://autodarts-pi.local/health.json
-```
-
-Wenn `.local` nicht aufloest, verwende die IP-Adresse des Pi:
-
-```text
-http://<pi-ip>/kiosk
-```
-
-Am angeschlossenen Bildschirm wird dieselbe Portal-Seite angezeigt. Sie bleibt sichtbar, auch wenn Autodarts noch installiert oder noch nicht erreichbar ist.
-
-### Recovery-Hotspot
-
-Wenn das Gerät bereits eingerichtet ist, startet der Setup-Hotspot bei normalem Netzwerkausfall nicht automatisch. Für eine bewusste Neueinrichtung gibt es drei Wege:
-
-1. Im Adminbereich `Recovery-Hotspot starten` wählen.
-2. Auf der Boot-Partition eine leere Datei anlegen:
-
-```text
-autodarts-recovery
-```
-
-3. Neu starten.
-
-Danach öffnet der Pi wieder den Hotspot:
-
-```text
-Autodarts-Setup
-```
-
-und die Setup-Seite ist erreichbar unter:
-
-```text
-http://auto.setup.go
-```
-
-### Factory Reset
-
-Für einen Reset auf die Image-Defaults:
-
-1. Im Adminbereich `Factory Reset vorbereiten` wählen, oder
-2. auf der Boot-Partition eine leere Datei anlegen:
-
-```text
-autodarts-factory-reset
-```
-
-Beim nächsten Boot wird die Default-Konfiguration wiederhergestellt und der Setup-Zustand auf `factory` gesetzt.
-
-Beispiel für eine spätere Boot-Seed-Konfiguration:
-
-```toml
-hostname = "autodarts-pi"
-mode = "webpanel"
-profile = "pi5-usb-camera"
-autodarts_command = "/usr/local/bin/autodarts-runtime"
-autodarts_install_enabled = true
-autodarts_version = "latest"
-autodarts_installer_url = "https://get.autodarts.io"
-webpanel_port = 80
-setup_mode = true
-setup_admin_user = "admin"
-setup_admin_password = "autodarts"
-setup_url = "http://localhost/setup"
-setup_hotspot_enabled = true
-setup_hotspot_ssid = "Autodarts-Setup"
-setup_hotspot_password = "autodarts"
-setup_hotspot_address = "10.42.0.1/24"
-setup_hotspot_host = "auto.setup.go"
-reboot_after_wifi = true
-kiosk_enabled = true
-play_url = "https://play.autodarts.io"
-kiosk_url = "http://localhost/kiosk"
-autodarts_local_url = "http://localhost:3180"
-autodarts_config_url = "http://localhost:3180"
-autodarts_fallback_url = "https://play.autodarts.io"
+```bash
+./tools/validate.sh
 ```
 
 ## Projektstruktur
 
 ```text
-assets/        Boot screen and visual assets
-docs/          Architecture, install, hardware, and development notes
-image/         pi-gen stage and root filesystem overlay
-profiles/     Hardware profile defaults
-services/     Source service unit files mirrored into image overlays
-tools/         Local helper and validation scripts
-webpanel/      Minimal local web panel implementation
+assets/      Boot-Splash und visuelle Assets
+docs/        Architektur, Installation, Hardware und Entwicklung
+image/       pi-gen-Stage, Overlays und Default-Konfiguration
+imager/      Hinweise fuer Raspberry Pi Imager
+profiles/   Hardwareprofile
+services/   systemd-Service-Dateien
+tools/       Build-, Release- und Validierungsskripte
+webpanel/    Hinweise zum lokalen Webpanel
 ```
 
-## Wichtige Pfade
+## Wichtige Pfade Im Image
 
-- Boot-Splash: `assets/boot/autodarts-pi-os-splash.png`
-- Default-Konfiguration: `image/overlays/etc/autodarts-pi-os/config.toml`
-- Services: `image/overlays/etc/systemd/system/`
-- Runtime-Skripte: `image/overlays/usr/local/bin/`
-- Autodarts-Installer: `image/overlays/usr/local/bin/autodarts-install`
-- Plymouth-Theme: `image/overlays/usr/share/plymouth/themes/autodarts-pi-os/`
-- Kiosk-Service: `image/overlays/etc/systemd/system/autodarts-kiosk.service`
+```text
+/etc/autodarts-pi-os/config.toml
+/var/lib/autodarts-pi-os/
+/var/log/autodarts-firstboot.log
+/var/log/autodarts-network.log
+/var/log/autodarts-kiosk.log
+/var/log/autodarts-install.log
+```
 
-## Rechtlicher Hinweis Zum Namen
+## Hinweis Zum Namen
 
-`Autodarts Pi OS` ist als beschreibender Projektname für ein Raspberry-Pi-Image gedacht, das für Autodarts-Setups gebaut wird. Vor einer öffentlichen Release-Kommunikation sollte die Branding- oder Trademark-Situation mit dem Autodarts-Projekt geklärt werden. Bis dahin ist eine Formulierung wie „unofficial Raspberry Pi OS image for Autodarts“ am sichersten.
+`Autodarts Pi OS` ist als beschreibender Projektname fuer ein inoffizielles Raspberry-Pi-Image fuer Autodarts-Setups gedacht. Vor groesserer oeffentlicher Kommunikation sollte die Branding- und Trademark-Situation mit dem Autodarts-Projekt geklaert werden.
+
+## Projekt Unterstuetzen
+
+[Ko-fi: autodartsos](https://ko-fi.com/autodartsos)
 
 ## Lizenz
 
-Dieses Projekt steht unter der Apache-2.0-Lizenz. Siehe [LICENSE](LICENSE).
-
-## Weitere Dokumentation
-
-- [Architektur](docs/architecture.md)
-- [Installation](docs/install.md)
-- [Hardware](docs/hardware.md)
-- [Entwicklung](docs/development.md)
+Apache-2.0. Siehe [LICENSE](LICENSE).

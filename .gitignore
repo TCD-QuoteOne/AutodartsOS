@@ -10,4 +10,5 @@ work/
 pi-gen/
 __pycache__/
 *.pyc
-
+.private/
+PRIVATE_NOTES.md
