@@ -324,6 +324,23 @@ def render_page(title, content, refresh_seconds=None):
     refresh = ""
     if refresh_seconds:
         refresh = f'\n  <meta http-equiv="refresh" content="{int(refresh_seconds)}">'
+    active = "overview"
+    if "Setup" in title:
+        active = "setup"
+    elif "Admin" in title:
+        active = "admin"
+    tabs = [
+        ("overview", "/kiosk", "Uebersicht"),
+        ("manager", "/app?target=manager", "Kameras"),
+        ("config", "/app?target=config", "Kamera-Setup"),
+        ("play", "/app?target=play", "Autodarts Play"),
+        ("setup", "/setup", "Netzwerk"),
+        ("admin", "/admin", "Admin"),
+    ]
+    nav = "".join(
+        f"""<a class="tab{' primary' if key == active else ''}" href="{href}">{label}</a>"""
+        for key, href, label in tabs
+    )
     return f"""<!doctype html>
 <html lang="de">
 <head>
@@ -332,23 +349,190 @@ def render_page(title, content, refresh_seconds=None):
   {refresh}
   <title>{html.escape(title)}</title>
   <style>
-    body {{ margin: 0; font-family: system-ui, sans-serif; background: #101412; color: #eef7ef; }}
-    main {{ max-width: 1040px; margin: 0 auto; padding: 32px 20px; }}
-    header {{ display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }}
-    img {{ width: 82px; height: 82px; object-fit: contain; }}
-    h1 {{ margin: 0; font-size: 32px; }}
-    h2 {{ margin-top: 28px; }}
-    p {{ color: #b8c7bb; line-height: 1.5; }}
-    form, .panel {{ background: #171d1a; border: 1px solid #2b3830; padding: 18px; margin-top: 16px; }}
-    label {{ display: block; color: #9ee26d; font-weight: 700; margin-top: 12px; }}
-    input {{ box-sizing: border-box; width: 100%; padding: 11px; margin-top: 6px; background: #0d110f; color: #eef7ef; border: 1px solid #3a473f; }}
-    button, a.button {{ display: inline-block; margin-top: 16px; margin-right: 10px; padding: 10px 14px; border: 0; background: #9ee26d; color: #101412; text-decoration: none; font-weight: 800; cursor: pointer; }}
-    table {{ width: 100%; border-collapse: collapse; background: #171d1a; border: 1px solid #2b3830; }}
-    th, td {{ text-align: left; padding: 11px 13px; border-bottom: 1px solid #2b3830; }}
-    th {{ width: 220px; color: #9ee26d; }}
-    pre {{ max-width: 100%; overflow: auto; white-space: pre-wrap; word-break: break-word; }}
-    .log-box {{ max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: #0d110f; border: 1px solid #2b3830; padding: 12px; }}
-    .muted {{ color: #b8c7bb; }}
+    :root {{
+      color-scheme: dark;
+      --bg: #070d14;
+      --surface: rgba(17, 24, 34, 0.86);
+      --surface-soft: rgba(25, 33, 45, 0.72);
+      --line: rgba(151, 169, 196, 0.18);
+      --text: #eef4ff;
+      --muted: #9ba8bb;
+      --blue: #347cff;
+      --blue-soft: rgba(52, 124, 255, 0.18);
+      --green: #48e06b;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(53, 124, 255, 0.16), transparent 38%),
+        radial-gradient(circle at 12% 18%, rgba(72, 224, 107, 0.08), transparent 28%),
+        linear-gradient(180deg, #0b121d 0%, var(--bg) 48%, #05080d 100%);
+      color: var(--text);
+    }}
+    main {{
+      width: min(100%, 600px);
+      margin: 0 auto;
+      padding: 18px 14px 28px;
+    }}
+    main::before {{
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(255,255,255,0.035), transparent 18%, transparent 82%, rgba(255,255,255,0.03));
+      opacity: 0.5;
+    }}
+    header {{
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 92px;
+      margin-bottom: 14px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 13, 20, 0.82);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }}
+    img {{ width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 8px 18px rgba(52, 124, 255, 0.24)); }}
+    h1 {{ margin: 0; font-size: clamp(26px, 5vw, 36px); line-height: 1.05; letter-spacing: 0; }}
+    header p {{ margin: 9px 0 0; color: var(--muted); font-size: 14px; }}
+    .tabs {{
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 14px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 13, 20, 0.82);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+    }}
+    .tab {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 10px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 850;
+    }}
+    .tab.primary, .tab:hover {{
+      border-color: rgba(86, 145, 255, 0.48);
+      background: var(--blue-soft);
+      color: var(--text);
+    }}
+    h2 {{
+      margin: 0 0 16px;
+      color: #b8c5d8;
+      font-size: 18px;
+      line-height: 1.25;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }}
+    p {{ color: var(--muted); line-height: 1.55; }}
+    strong {{ color: var(--text); font-weight: 800; }}
+    form, .panel, section:not(.panel) {{
+      position: relative;
+      overflow: hidden;
+      margin-top: 12px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.045), transparent 38%),
+        var(--surface);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    }}
+    form::after, .panel::after, section:not(.panel)::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }}
+    form h2, .panel h2, section h2 {{ margin-top: 0; }}
+    label {{ display: block; color: #78a9ff; font-weight: 800; margin-top: 14px; }}
+    input {{
+      width: 100%;
+      min-height: 46px;
+      padding: 12px 13px;
+      margin-top: 7px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(4, 8, 13, 0.82);
+      color: var(--text);
+      outline: none;
+    }}
+    input:focus {{ border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }}
+    button, a.button {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      margin-top: 14px;
+      margin-right: 8px;
+      padding: 0 16px;
+      border: 1px solid rgba(86, 145, 255, 0.42);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #3d86ff, #1f65db);
+      color: #f8fbff;
+      text-decoration: none;
+      font-weight: 850;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(38, 111, 255, 0.24);
+    }}
+    button:hover, a.button:hover {{ filter: brightness(1.08); }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }}
+    th, td {{ text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }}
+    th {{ width: 190px; color: #78a9ff; font-weight: 850; }}
+    td {{ color: var(--muted); }}
+    tr:last-child th, tr:last-child td {{ border-bottom: 0; }}
+    pre {{
+      max-width: 100%;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c7d3e6;
+      background: rgba(4, 8, 13, 0.68);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }}
+    .log-box {{ max-height: 360px; overflow: auto; }}
+    .muted {{ color: var(--muted); }}
+    @media (max-width: 620px) {{
+      main {{ padding: 10px 8px 18px; }}
+      header {{ min-height: 82px; padding: 14px; }}
+      img {{ width: 48px; height: 48px; }}
+      .tabs {{ grid-template-columns: 1fr 1fr; }}
+      form, .panel, section:not(.panel) {{ padding: 16px; }}
+      button, a.button {{ width: 100%; margin-right: 0; }}
+      th, td {{ display: block; width: 100%; }}
+      th {{ padding-bottom: 4px; border-bottom: 0; }}
+      td {{ padding-top: 0; }}
+    }}
   </style>
 </head>
 <body>
@@ -360,6 +544,9 @@ def render_page(title, content, refresh_seconds=None):
         <p>{html.escape(socket.gethostname())}</p>
       </div>
     </header>
+    <nav class="tabs" aria-label="Schnellzugriff">
+      {nav}
+    </nav>
     {content}
   </main>
 </body>
@@ -402,13 +589,37 @@ def render_kiosk_shell(config, request_host, target):
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Autodarts Pi OS - {html.escape(label)}</title>
   <style>
-    html, body {{ height: 100%; margin: 0; overflow: hidden; font-family: system-ui, sans-serif; background: #101412; color: #eef7ef; }}
-    .bar {{ height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #101412; border-bottom: 1px solid #2b3830; box-sizing: border-box; }}
-    .bar img {{ width: 44px; height: 44px; object-fit: contain; flex: 0 0 auto; }}
-    .title {{ font-weight: 800; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-    button, a {{ display: inline-flex; align-items: center; height: 38px; padding: 0 12px; border: 0; background: #9ee26d; color: #101412; text-decoration: none; font-weight: 800; cursor: pointer; }}
-    .secondary {{ background: #26312b; color: #eef7ef; }}
-    iframe {{ display: block; width: 100%; height: calc(100vh - 58px); border: 0; background: #fff; }}
+    :root {{ color-scheme: dark; --line: rgba(151,169,196,.18); --blue: #347cff; --text: #eef4ff; --muted: #9ba8bb; }}
+    html, body {{ height: 100%; margin: 0; overflow: hidden; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #070d14; color: var(--text); }}
+    .bar {{
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      background: linear-gradient(180deg, rgba(13, 19, 29, .96), rgba(8, 13, 20, .94));
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 12px 36px rgba(0,0,0,.34);
+      box-sizing: border-box;
+    }}
+    .bar img {{ width: 44px; height: 44px; object-fit: contain; flex: 0 0 auto; filter: drop-shadow(0 8px 18px rgba(52,124,255,.22)); }}
+    .title {{ font-weight: 850; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    button, a {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      padding: 0 13px;
+      border: 1px solid rgba(86,145,255,.42);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #3d86ff, #1f65db);
+      color: #f8fbff;
+      text-decoration: none;
+      font-weight: 850;
+      cursor: pointer;
+    }}
+    .secondary {{ background: rgba(31, 43, 58, .9); border-color: var(--line); color: var(--text); }}
+    iframe {{ display: block; width: 100%; height: calc(100vh - 64px); border: 0; background: #fff; }}
     @media (max-width: 720px) {{
       .bar {{ gap: 6px; padding: 0 8px; }}
       .title {{ display: none; }}
@@ -451,26 +662,16 @@ def render_kiosk_portal(config, request_host=""):
     manager_url = external_autodarts_url(request_host)
     primary_ip = html.escape(net.get("primary_ip") or "noch keine IP")
     install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
-    fallback = html.escape(config.get("autodarts_fallback_url", config.get("play_url", "https://play.autodarts.io")))
     if autodarts_url:
-        autodarts_action = f"""<a class="button" href="/app?target=manager">Kameras / Autodarts oeffnen</a>
-  <a class="button" href="/app?target=config">Kamera-Setup oeffnen</a>
-  <p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong>. Externer Zugriff: <strong>{html.escape(manager_url)}</strong></p>"""
+        autodarts_action = f"""<p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong><br>Externer Zugriff: <strong>{html.escape(manager_url)}</strong></p>"""
     else:
-        autodarts_action = f"""<a class="button" href="/app?target=manager">Autodarts Manager versuchen</a>
-  <a class="button" href="/app?target=config">Kamera-Setup versuchen</a>
-  <p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht bestaetigt erreichbar. Erwartete Adresse: <strong>{html.escape(manager_url)}</strong>. Diese Seite aktualisiert sich automatisch.</p>"""
+        autodarts_action = f"""<p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht bestaetigt erreichbar.<br>Erwartete Adresse: <strong>{html.escape(manager_url)}</strong>. Diese Seite aktualisiert sich automatisch.</p>"""
     content = f"""<section class="panel">
   <h2>Autodarts Pi OS ist bereit</h2>
   <p>Diese lokale Seite bleibt auf Bildschirm und Handy erreichbar. Von hier aus startest du die Autodarts- und Kamera-Einrichtung, sobald der lokale Dienst bereit ist.</p>
   <p>Zugewiesene IP: <strong>{primary_ip}</strong></p>
   <p>Installationsstatus: <strong>{html.escape(install_state)}</strong></p>
   {autodarts_action}
-  <a class="button" href="/kiosk">Status aktualisieren</a>
-  <a class="button" href="/admin">Admin</a>
-  <a class="button" href="/setup">Netzwerk-Setup</a>
-  <a class="button" href="/app?target=play">Autodarts Play</a>
-  <a class="button" href="{fallback}">Play direkt oeffnen</a>
 </section>"""
     return render_page("Autodarts Pi OS", content, refresh_seconds=10)
 
