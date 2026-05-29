@@ -25,7 +25,7 @@ Ziel ist ein reproduzierbares Out-of-the-box-System fuer Raspberry-Pi-basierte A
 - Setup-Hotspot, wenn noch kein Netzwerk verfuegbar ist
 - lokales Webpanel fuer Setup, Status, Admin und Recovery
 - Kiosk-Ausgabe auf angeschlossenem Monitor
-- Integration des offiziellen Autodarts-Installers von `https://get.autodarts.io`
+- gebuendelter Autodarts-Installer mit SHA256-Pruefung im Release-Image
 - direkter Einstieg in den Autodarts Manager und die Kamera-Konfiguration
 - Recovery-Hotspot und Factory Reset
 - Raspberry-Pi-Imager-Manifest fuer Releases
@@ -85,10 +85,12 @@ Wenn kein funktionierendes Netzwerk vorhanden ist, startet der Setup-Hotspot:
 
 ```text
 WLAN: Autodarts-Setup
-Passwort: autodarts
+Passwort: wird beim ersten Start geraetespezifisch erzeugt
 Setup-Adresse: http://auto.setup.go
 Fallback-IP: http://10.42.0.1
 ```
+
+Das Hotspot-Passwort wird auf einem angeschlossenen Bildschirm und im lokalen Setup-Status angezeigt. Wenn WLAN-Daten ueber den Raspberry Pi Imager gesetzt wurden, versucht das System zuerst diese Verbindung und startet den Hotspot nur als Fallback.
 
 Falls ein Handy trotz verbundenem Hotspot keine Seite oeffnet, mobile Daten fuer die Einrichtung kurz deaktivieren oder das WLAN als Netzwerk ohne Internet akzeptieren.
 
@@ -106,6 +108,8 @@ Das Webpanel bietet:
 - Ko-fi-Link
 
 Das Webpanel ist fuer lokale Netze gedacht. Zugriffe aus oeffentlichen IP-Bereichen werden standardmaessig abgewiesen. Stelle das Webpanel nicht per Router-Portfreigabe direkt ins Internet.
+
+Das Webpanel nutzt bewusst lokales HTTP. Fuer `*.local` und den Setup-Hotspot waeren oeffentlich vertrauenswuerdige TLS-Zertifikate in der Praxis nicht sauber automatisierbar; selbstsignierte Zertifikate wuerden auf Handy und Kiosk Browser-Warnungen erzeugen und die Einrichtung komplizierter machen. Die Schutzlinie ist daher: nur lokales Netz, kein Portforwarding, Login, CSRF-Schutz und private IP-Filter.
 
 Der lokale Autodarts Manager ist vorgesehen unter:
 
@@ -155,6 +159,7 @@ RELEASE_VERSION="v0.1.18" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.
 ```
 
 Der Build erzeugt nur die Lite-Version des Appliance-Images.
+Bei `BUNDLE_AUTODARTS_INSTALLER=true` wird der Autodarts-Installer ins Image gelegt und mit einer SHA256-Datei versehen. Das Zielgeraet fuehrt standardmaessig nur diesen geprueften Installer aus; ein Live-Download ist nur als bewusster Entwickler-Fallback ueber die Konfiguration vorgesehen.
 
 ## Image Pruefen
 

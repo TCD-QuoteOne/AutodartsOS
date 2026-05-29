@@ -8,7 +8,11 @@ ConditionPathExists=!/var/lib/autodarts-pi-os/autodarts-install.done
 Type=oneshot
 ExecStart=/usr/local/bin/autodarts-install
 TimeoutStartSec=30min
+UMask=0077
+PrivateTmp=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target
-

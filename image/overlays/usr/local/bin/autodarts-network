@@ -57,6 +57,41 @@ set_config_bool() {
   fi
 }
 
+set_config_string() {
+  local key="$1"
+  local value="$2"
+  local escaped
+  escaped="$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  if grep -qE "^${key}[[:space:]]*=" "$CONFIG_FILE" 2>/dev/null; then
+    sed -i -E "s|^${key}[[:space:]]*=.*|${key} = \"${escaped}\"|" "$CONFIG_FILE"
+  else
+    printf '%s = "%s"\n' "$key" "$escaped" >> "$CONFIG_FILE"
+  fi
+}
+
+generate_setup_hotspot_password() {
+  python3 - <<'PY'
+import secrets
+alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+print("".join(secrets.choice(alphabet) for _ in range(14)))
+PY
+}
+
+ensure_setup_hotspot_password() {
+  local password
+  password="$(config_string setup_hotspot_password)"
+  if [[ -f "$WIFI_CREDENTIALS" ]]; then
+    printf '%s' "${password:-autodarts}"
+    return 0
+  fi
+  if [[ -z "$password" || "$password" == "autodarts" ]]; then
+    password="$(generate_setup_hotspot_password)"
+    set_config_string setup_hotspot_password "$password"
+    echo "$(date -Is) generated unique setup hotspot password" >&2
+  fi
+  printf '%s' "$password"
+}
+
 mark_configured() {
   mkdir -p "$(dirname "$SETUP_STATE_FILE")"
   set_config_bool setup_mode false
@@ -119,10 +154,9 @@ stop_hotspot() {
 ensure_hotspot() {
   local ssid password address device
   ssid="$(config_string setup_hotspot_ssid)"
-  password="$(config_string setup_hotspot_password)"
+  password="$(ensure_setup_hotspot_password)"
   address="$(config_string setup_hotspot_address)"
   ssid="${ssid:-Autodarts-Setup}"
-  password="${password:-autodarts}"
   address="${address:-10.42.0.1/24}"
   device="$(wifi_device)"
 

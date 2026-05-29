@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CONFIG_FILE="/etc/autodarts-pi-os/config.toml"
+
+config_value() {
+  local key="$1"
+  awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
+}
+
 echo "Status:"
 printf "  Weboberflaeche: "
 systemctl is-active --quiet autodarts-webpanel.service && echo "aktiv" || echo "nicht aktiv"
@@ -18,3 +25,7 @@ echo "Setup-Adressen:"
 echo "  http://10.42.0.1"
 echo "  http://auto.setup.go"
 echo "  http://autodarts-pi.local"
+echo
+echo "Setup-Hotspot:"
+echo "  WLAN: $(config_value setup_hotspot_ssid || true)"
+echo "  Passwort: $(config_value setup_hotspot_password || true)"

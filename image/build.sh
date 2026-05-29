@@ -46,6 +46,9 @@ elif [[ "$BUNDLE_AUTODARTS_INSTALLER" == "1" || "$BUNDLE_AUTODARTS_INSTALLER" ==
     --output "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh"
   chmod 0755 "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh"
 fi
+if [[ -f "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os/autodarts-installer.sh" ]]; then
+  (cd "$STAGE_DIR/00-install/files/usr/share/autodarts-pi-os" && sha256sum autodarts-installer.sh > autodarts-installer.sh.sha256)
+fi
 rm -f "$STAGE_DIR/00-packages"
 cp "$ROOT_DIR/image/packages" "$STAGE_DIR/00-install/00-packages"
 
@@ -96,6 +99,7 @@ install -m 0644 files/usr/share/autodarts-pi-os/splash.png "${ROOTFS_DIR}/usr/sh
 install -m 0644 files/usr/share/autodarts-pi-os/kofi-logo.webp "${ROOTFS_DIR}/usr/share/autodarts-pi-os/kofi-logo.webp"
 if [[ -f files/usr/share/autodarts-pi-os/autodarts-installer.sh ]]; then
   install -m 0755 files/usr/share/autodarts-pi-os/autodarts-installer.sh "${ROOTFS_DIR}/usr/share/autodarts-pi-os/autodarts-installer.sh"
+  install -m 0644 files/usr/share/autodarts-pi-os/autodarts-installer.sh.sha256 "${ROOTFS_DIR}/usr/share/autodarts-pi-os/autodarts-installer.sh.sha256"
 fi
 install -d "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os"
 install -m 0644 files/usr/share/plymouth/themes/autodarts-pi-os/* "${ROOTFS_DIR}/usr/share/plymouth/themes/autodarts-pi-os/"
