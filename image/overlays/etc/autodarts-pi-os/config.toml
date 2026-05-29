@@ -12,6 +12,7 @@ allow_public_webpanel = false
 setup_mode = true
 setup_admin_user = "admin"
 setup_admin_password = "autodarts"
+setup_admin_password_hash = ""
 setup_url = "http://127.0.0.1/setup"
 setup_hotspot_enabled = true
 setup_hotspot_ssid = "Autodarts-Setup"

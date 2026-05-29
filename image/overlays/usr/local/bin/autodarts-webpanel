@@ -3,12 +3,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from http import cookies
 import html
+import hashlib
 import ipaddress
 import json
+import os
 import re
 import secrets
 import socket
 import subprocess
+import time
 from urllib.parse import parse_qs, urlparse
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -28,8 +31,25 @@ FIRSTBOOT_LOG = Path("/var/log/autodarts-firstboot.log")
 INSTALL_MARKER = Path("/var/lib/autodarts-pi-os/autodarts-install.done")
 SESSION_FILE = Path("/var/lib/autodarts-pi-os/webpanel-session")
 CSRF_FILE = Path("/var/lib/autodarts-pi-os/webpanel-csrf")
+LOGIN_ATTEMPTS_FILE = Path("/var/lib/autodarts-pi-os/login-attempts.json")
 PORT = 80
 DEFAULT_SETUP_PASSWORD = "autodarts"
+PASSWORD_HASH_PREFIX = "pbkdf2_sha256"
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCK_SECONDS = 120
+
+
+def secure_file(path, mode=0o640):
+    try:
+        path.chmod(mode)
+    except OSError:
+        pass
+    try:
+        import grp
+
+        os.chown(path, 0, grp.getgrnam("autodarts").gr_gid)
+    except (KeyError, OSError):
+        pass
 
 
 def read_config():
@@ -58,6 +78,26 @@ def write_config(values):
             rendered = f'"{escaped}"'
         lines.append(f"{key} = {rendered}")
     CONFIG.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    secure_file(CONFIG)
+
+
+def password_hash(password):
+    salt = secrets.token_hex(16)
+    iterations = 210000
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("ascii"), iterations)
+    return f"{PASSWORD_HASH_PREFIX}${iterations}${salt}${digest.hex()}"
+
+
+def password_matches(password, config):
+    stored_hash = config.get("setup_admin_password_hash", "")
+    if stored_hash.startswith(f"{PASSWORD_HASH_PREFIX}$"):
+        try:
+            _, iterations, salt, expected = stored_hash.split("$", 3)
+            digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("ascii"), int(iterations))
+            return secrets.compare_digest(digest.hex(), expected)
+        except (ValueError, TypeError):
+            return False
+    return secrets.compare_digest(password, config.get("setup_admin_password", DEFAULT_SETUP_PASSWORD))
 
 
 def sanitize_hostname(value):
@@ -180,6 +220,7 @@ def read_status():
 def write_status(values):
     STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATUS_FILE.write_text(json.dumps(values, indent=2), encoding="utf-8")
+    secure_file(STATUS_FILE)
 
 
 def read_setup_state():
@@ -213,6 +254,54 @@ def write_wifi_credentials(ssid, password, country):
     }
     WIFI_CREDENTIALS.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     WIFI_CREDENTIALS.chmod(0o600)
+
+
+def read_login_attempts():
+    if not LOGIN_ATTEMPTS_FILE.exists():
+        return {}
+    try:
+        return json.loads(LOGIN_ATTEMPTS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def write_login_attempts(values):
+    LOGIN_ATTEMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LOGIN_ATTEMPTS_FILE.write_text(json.dumps(values), encoding="utf-8")
+    LOGIN_ATTEMPTS_FILE.chmod(0o600)
+
+
+def login_key(handler):
+    try:
+        return str(ipaddress.ip_address(handler.client_address[0]))
+    except ValueError:
+        return "unknown"
+
+
+def login_locked(handler):
+    attempts = read_login_attempts()
+    entry = attempts.get(login_key(handler), {})
+    locked_until = float(entry.get("locked_until", 0) or 0)
+    return time.time() < locked_until
+
+
+def record_login_success(handler):
+    attempts = read_login_attempts()
+    attempts.pop(login_key(handler), None)
+    write_login_attempts(attempts)
+
+
+def record_login_failure(handler):
+    attempts = read_login_attempts()
+    key = login_key(handler)
+    entry = attempts.get(key, {})
+    count = int(entry.get("count", 0) or 0) + 1
+    entry = {"count": count, "last_failure": time.time()}
+    if count >= LOGIN_MAX_ATTEMPTS:
+        entry["locked_until"] = time.time() + LOGIN_LOCK_SECONDS
+        entry["count"] = 0
+    attempts[key] = entry
+    write_login_attempts(attempts)
 
 
 def mark_setup_configured(config, status, message):
@@ -350,7 +439,7 @@ def is_authenticated(handler):
 
 
 def is_default_setup_password(config):
-    return config.get("setup_admin_password", DEFAULT_SETUP_PASSWORD) == DEFAULT_SETUP_PASSWORD
+    return not config.get("setup_admin_password_hash") and config.get("setup_admin_password", DEFAULT_SETUP_PASSWORD) == DEFAULT_SETUP_PASSWORD
 
 
 def client_allowed(handler, config):
@@ -761,12 +850,17 @@ class Handler(BaseHTTPRequestHandler):
             target = data.get("next", ["/setup"])[0]
             if target not in {"/setup", "/admin"}:
                 target = "/setup"
-            if password == config.get("setup_admin_password", "autodarts"):
+            if login_locked(self):
+                redirect(self, f"{target}?login=locked")
+                return
+            if password_matches(password, config):
+                record_login_success(self)
                 self.send_response(303)
                 self.send_header("Location", target)
                 self.send_header("Set-Cookie", f"autodarts_setup={session_token()}; Path=/; HttpOnly; SameSite=Strict")
                 self.end_headers()
                 return
+            record_login_failure(self)
             redirect(self, f"{target}?login=failed")
             return
 
@@ -808,7 +902,8 @@ class Handler(BaseHTTPRequestHandler):
                 ensure_hosts_entry(hostname)
                 run_command(["systemctl", "restart", "avahi-daemon.service"])
             if admin_password:
-                config["setup_admin_password"] = admin_password
+                config["setup_admin_password_hash"] = password_hash(admin_password)
+                config["setup_admin_password"] = ""
                 config["setup_hotspot_password"] = admin_password
                 reset_session_token()
             if wifi_ssid:
@@ -920,7 +1015,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(403)
                 self.end_headers()
                 return
-            if data.get("admin_password", [""])[0] != config.get("setup_admin_password", DEFAULT_SETUP_PASSWORD):
+            if not password_matches(data.get("admin_password", [""])[0], config):
                 status = read_status()
                 status["admin"] = {"state": "warning", "message": "Factory Reset wurde nicht ausgefuehrt. Bitte Admin-Passwort erneut eingeben."}
                 write_status(status)

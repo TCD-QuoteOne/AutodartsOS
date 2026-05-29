@@ -111,6 +111,8 @@ Das Webpanel ist fuer lokale Netze gedacht. Zugriffe aus oeffentlichen IP-Bereic
 
 Das Webpanel nutzt bewusst lokales HTTP. Fuer `*.local` und den Setup-Hotspot waeren oeffentlich vertrauenswuerdige TLS-Zertifikate in der Praxis nicht sauber automatisierbar; selbstsignierte Zertifikate wuerden auf Handy und Kiosk Browser-Warnungen erzeugen und die Einrichtung komplizierter machen. Die Schutzlinie ist daher: nur lokales Netz, kein Portforwarding, Login, CSRF-Schutz und private IP-Filter.
 
+Nach dem ersten Passwortwechsel wird das Admin-Passwort nur noch als Hash gespeichert. Login-Fehlversuche werden kurzzeitig gebremst, damit einfache Rate-Limit-Angriffe im lokalen Netz nicht endlos durchlaufen.
+
 Der lokale Autodarts Manager ist vorgesehen unter:
 
 ```text

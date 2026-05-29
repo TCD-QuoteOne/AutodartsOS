@@ -21,6 +21,13 @@ if [[ -f "$SEED_CONFIG" ]]; then
   SEED_USED=true
 fi
 
+secure_root_autodarts_file() {
+  local path="$1"
+  [[ -e "$path" ]] || return 0
+  chown root:autodarts "$path" 2>/dev/null || true
+  chmod 0640 "$path" 2>/dev/null || true
+}
+
 config_string() {
   local key="$1"
   awk -F '"' -v key="$key" '$0 ~ "^" key "[[:space:]]*=" {print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
@@ -401,6 +408,9 @@ install -d -m 0700 -o autodarts -g autodarts /home/autodarts/.cache
 install -d -m 0700 -o autodarts -g autodarts /home/autodarts/.config
 install -d -m 0700 -o autodarts -g autodarts /home/autodarts/.local/state/autodarts-pi-os
 chown -R autodarts:autodarts /home/autodarts || true
+secure_root_autodarts_file "$CONFIG_FILE"
+secure_root_autodarts_file "$STATUS_FILE"
+secure_root_autodarts_file "$FIRSTBOOT_LOG"
 
 if systemctl list-unit-files NetworkManager.service >/dev/null 2>&1; then
   systemctl enable NetworkManager.service || true
