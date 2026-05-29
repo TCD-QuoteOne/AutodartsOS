@@ -6,6 +6,7 @@ autodarts_install_enabled = true
 autodarts_version = "latest"
 autodarts_installer_url = "https://get.autodarts.io"
 webpanel_port = 80
+allow_public_webpanel = false
 setup_mode = true
 setup_admin_user = "admin"
 setup_admin_password = "autodarts"

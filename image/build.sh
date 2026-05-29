@@ -68,6 +68,8 @@ cat > "$STAGE_DIR/00-install/00-run.sh" <<'SCRIPT'
 set -e
 install -d "${ROOTFS_DIR}/etc/systemd/system"
 install -m 0644 files/etc/systemd/system/*.service "${ROOTFS_DIR}/etc/systemd/system/"
+install -d "${ROOTFS_DIR}/etc/ssh/sshd_config.d"
+install -m 0644 files/etc/ssh/sshd_config.d/*.conf "${ROOTFS_DIR}/etc/ssh/sshd_config.d/"
 install -d "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants"
 ln -sf ../autodarts-firstboot.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-firstboot.service"
 ln -sf ../autodarts-bootctl.service "${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants/autodarts-bootctl.service"

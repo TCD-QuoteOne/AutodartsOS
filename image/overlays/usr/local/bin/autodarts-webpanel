@@ -3,6 +3,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from http import cookies
 import html
+import ipaddress
 import json
 import re
 import secrets
@@ -26,7 +27,9 @@ INSTALL_LOG = Path("/var/log/autodarts-install.log")
 FIRSTBOOT_LOG = Path("/var/log/autodarts-firstboot.log")
 INSTALL_MARKER = Path("/var/lib/autodarts-pi-os/autodarts-install.done")
 SESSION_FILE = Path("/var/lib/autodarts-pi-os/webpanel-session")
+CSRF_FILE = Path("/var/lib/autodarts-pi-os/webpanel-csrf")
 PORT = 80
+DEFAULT_SETUP_PASSWORD = "autodarts"
 
 
 def read_config():
@@ -100,12 +103,37 @@ def session_token():
     SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     if not SESSION_FILE.exists():
         SESSION_FILE.write_text(secrets.token_urlsafe(32), encoding="utf-8")
+        SESSION_FILE.chmod(0o600)
     return SESSION_FILE.read_text(encoding="utf-8").strip()
 
 
 def reset_session_token():
     SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     SESSION_FILE.write_text(secrets.token_urlsafe(32), encoding="utf-8")
+    SESSION_FILE.chmod(0o600)
+    reset_csrf_token()
+
+
+def csrf_token():
+    CSRF_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not CSRF_FILE.exists():
+        CSRF_FILE.write_text(secrets.token_urlsafe(32), encoding="utf-8")
+        CSRF_FILE.chmod(0o600)
+    return CSRF_FILE.read_text(encoding="utf-8").strip()
+
+
+def reset_csrf_token():
+    CSRF_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CSRF_FILE.write_text(secrets.token_urlsafe(32), encoding="utf-8")
+    CSRF_FILE.chmod(0o600)
+
+
+def csrf_input():
+    return f'<input type="hidden" name="csrf_token" value="{html.escape(csrf_token())}">'
+
+
+def csrf_valid(data):
+    return secrets.compare_digest(data.get("csrf_token", [""])[0], csrf_token())
 
 
 def service_state(name):
@@ -319,6 +347,29 @@ def is_authenticated(handler):
     jar = cookies.SimpleCookie()
     jar.load(header)
     return jar.get("autodarts_setup") and jar["autodarts_setup"].value == session_token()
+
+
+def is_default_setup_password(config):
+    return config.get("setup_admin_password", DEFAULT_SETUP_PASSWORD) == DEFAULT_SETUP_PASSWORD
+
+
+def client_allowed(handler, config):
+    if str(config.get("allow_public_webpanel", "false")).lower() == "true":
+        return True
+    try:
+        addr = ipaddress.ip_address(handler.client_address[0])
+    except ValueError:
+        return False
+    return addr.is_loopback or addr.is_private or addr.is_link_local
+
+
+def deny_forbidden(handler):
+    body = b"Autodarts Pi OS web panel is only available from local or private networks.\n"
+    handler.send_response(403)
+    handler.send_header("Content-Type", "text/plain; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
 
 
 def render_page(title, content, refresh_seconds=None):
@@ -701,6 +752,9 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         data = parse_qs(self.rfile.read(length).decode("utf-8"), keep_blank_values=True)
         config = read_config()
+        if not client_allowed(self, config):
+            deny_forbidden(self)
+            return
 
         if self.path == "/login":
             password = data.get("password", [""])[0]
@@ -710,7 +764,7 @@ class Handler(BaseHTTPRequestHandler):
             if password == config.get("setup_admin_password", "autodarts"):
                 self.send_response(303)
                 self.send_header("Location", target)
-                self.send_header("Set-Cookie", f"autodarts_setup={session_token()}; Path=/; HttpOnly; SameSite=Lax")
+                self.send_header("Set-Cookie", f"autodarts_setup={session_token()}; Path=/; HttpOnly; SameSite=Strict")
                 self.end_headers()
                 return
             redirect(self, f"{target}?login=failed")
@@ -720,11 +774,33 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 redirect(self, "/setup")
                 return
+            if not csrf_valid(data):
+                self.send_response(403)
+                self.end_headers()
+                return
             hostname = data.get("hostname", [""])[0].strip()
             admin_password = data.get("setup_admin_password", [""])[0].strip()
             wifi_ssid = data.get("wifi_ssid", [""])[0].strip()
             wifi_password = data.get("wifi_password", [""])[0]
             wifi_country = data.get("wifi_country", ["DE"])[0].strip().upper()[:2] or "DE"
+            if is_default_setup_password(config) and not admin_password:
+                setup_status = read_status()
+                setup_status["password"] = {
+                    "state": "required",
+                    "message": "Bitte setze vor dem Abschluss ein eigenes Setup-Passwort.",
+                }
+                write_status(setup_status)
+                redirect(self, "/setup?password=required")
+                return
+            if admin_password and (len(admin_password) < 8 or admin_password == DEFAULT_SETUP_PASSWORD):
+                setup_status = read_status()
+                setup_status["password"] = {
+                    "state": "failed",
+                    "message": "Das neue Setup-Passwort muss mindestens 8 Zeichen haben und darf nicht das Standardpasswort sein.",
+                }
+                write_status(setup_status)
+                redirect(self, "/setup?password=weak")
+                return
             if hostname:
                 hostname = sanitize_hostname(hostname)
                 config["hostname"] = hostname
@@ -785,6 +861,19 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 redirect(self, "/setup")
                 return
+            if not csrf_valid(data):
+                self.send_response(403)
+                self.end_headers()
+                return
+            if is_default_setup_password(config):
+                status = read_status()
+                status["password"] = {
+                    "state": "required",
+                    "message": "Setup kann erst abgeschlossen werden, wenn ein eigenes Setup-Passwort gesetzt wurde.",
+                }
+                write_status(status)
+                redirect(self, "/setup?password=required")
+                return
             status = read_status()
             status["network"] = network_status()
             if not status["network"]["online"]:
@@ -806,6 +895,10 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 redirect(self, "/admin")
                 return
+            if not csrf_valid(data):
+                self.send_response(403)
+                self.end_headers()
+                return
             if data.get("confirm_recovery", [""])[0] != "yes":
                 status = read_status()
                 status["admin"] = {"state": "warning", "message": "Recovery-Hotspot wurde nicht gestartet. Bitte zuerst bestaetigen."}
@@ -820,6 +913,16 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path == "/admin/factory-reset":
             if not is_authenticated(self):
+                redirect(self, "/admin")
+                return
+            if not csrf_valid(data):
+                self.send_response(403)
+                self.end_headers()
+                return
+            if data.get("admin_password", [""])[0] != config.get("setup_admin_password", DEFAULT_SETUP_PASSWORD):
+                status = read_status()
+                status["admin"] = {"state": "warning", "message": "Factory Reset wurde nicht ausgefuehrt. Bitte Admin-Passwort erneut eingeben."}
+                write_status(status)
                 redirect(self, "/admin")
                 return
             if data.get("confirm_factory_reset", [""])[0] != "yes":
@@ -847,6 +950,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         config = read_config()
+        if not client_allowed(self, config):
+            deny_forbidden(self)
+            return
 
         captive_probe_paths = {
             "/generate_204",
@@ -926,6 +1032,28 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/health.json":
+            if not is_authenticated(self):
+                net = network_status()
+                payload = {
+                    "hostname": socket.gethostname(),
+                    "setup_state": read_setup_state(),
+                    "autodarts_install_done": INSTALL_MARKER.exists(),
+                    "network": {
+                        "online": net.get("online", False),
+                        "primary_ip": net.get("primary_ip", ""),
+                        "setup_hotspot_active": net.get("setup_hotspot_active", False),
+                    },
+                    "services": {
+                        "webpanel": service_state("autodarts-webpanel.service"),
+                    },
+                }
+                body = json.dumps(payload, indent=2).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             payload = {
                 "hostname": socket.gethostname(),
                 "config": public_config(config),
@@ -951,6 +1079,9 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/logs/kiosk":
+            if not is_authenticated(self):
+                redirect(self, "/admin")
+                return
             payload = KIOSK_LOG.read_text(encoding="utf-8", errors="replace")[-12000:] if KIOSK_LOG.exists() else "No kiosk log yet."
             body = payload.encode("utf-8")
             self.send_response(200)
@@ -961,6 +1092,9 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/logs/network":
+            if not is_authenticated(self):
+                redirect(self, "/admin")
+                return
             payload = NETWORK_LOG.read_text(encoding="utf-8", errors="replace")[-12000:] if NETWORK_LOG.exists() else "No network log yet."
             body = payload.encode("utf-8")
             self.send_response(200)
@@ -971,6 +1105,9 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/logs/firstboot":
+            if not is_authenticated(self):
+                redirect(self, "/admin")
+                return
             payload = FIRSTBOOT_LOG.read_text(encoding="utf-8", errors="replace")[-12000:] if FIRSTBOOT_LOG.exists() else "No firstboot log yet."
             body = payload.encode("utf-8")
             self.send_response(200)
@@ -981,6 +1118,9 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/logs/install":
+            if not is_authenticated(self):
+                redirect(self, "/admin")
+                return
             payload = INSTALL_LOG.read_text(encoding="utf-8", errors="replace")[-12000:] if INSTALL_LOG.exists() else "No install log yet."
             body = payload.encode("utf-8")
             self.send_response(200)
@@ -1035,11 +1175,15 @@ class Handler(BaseHTTPRequestHandler):
   <a class="button" href="/logs/network">Netzwerk-Log</a>
   <a class="button" href="/logs/install">Install-Log</a>
   <form method="post" action="/admin/recovery">
+    {csrf_input()}
     <label><input type="checkbox" name="confirm_recovery" value="yes"> Recovery-Hotspot wirklich starten</label>
     <button type="submit">Recovery-Hotspot starten</button>
   </form>
   <form method="post" action="/admin/factory-reset">
+    {csrf_input()}
     <label><input type="checkbox" name="confirm_factory_reset" value="yes"> System wirklich auf Werkseinstellungen zuruecksetzen</label>
+    <label for="admin_password">Admin-Passwort bestaetigen</label>
+    <input id="admin_password" name="admin_password" type="password" autocomplete="current-password">
     <button type="submit">Factory Reset ausfuehren</button>
   </form>
 </section>
@@ -1102,10 +1246,15 @@ class Handler(BaseHTTPRequestHandler):
             config_rows = "".join(f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>" for key, value in public_config(config).items())
             stored_wifi = read_wifi_credentials()
             saved_password_note = "gespeichert" if stored_wifi.get("password_saved") else "nicht gespeichert"
+            password_notice = ""
+            if is_default_setup_password(config):
+                password_notice = """<section class="panel"><h2>Sicherheit</h2><p>Bitte setze ein eigenes Setup-Passwort. Das Setup kann mit dem Standardpasswort nicht abgeschlossen werden.</p></section>"""
             content = f"""<p class="muted">Richte das System wie bei einem Router ein: erst lokales Setup-Passwort und Hostname. Mit Netzwerkkabel wird das Setup beim Speichern abgeschlossen. Mit WLAN passiert das nach erfolgreichem Verbindungstest.</p>
+{password_notice}
 {net_panel}
 {wifi_panel}
 <form method="post" action="/setup/save">
+  {csrf_input()}
   <h2>System</h2>
   <label for="hostname">Hostname</label>
   <input id="hostname" name="hostname" value="{html.escape(config.get("hostname", "autodarts-pi"))}">
@@ -1123,6 +1272,7 @@ class Handler(BaseHTTPRequestHandler):
   <button type="submit">Speichern und anwenden</button>
 </form>
 <form method="post" action="/setup/finish">
+  {csrf_input()}
   <h2>Setup abschliessen</h2>
   <p class="muted">Falls das Setup noch nicht automatisch abgeschlossen wurde, kannst du es hier manuell abschliessen. Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
   <button type="submit">Setup abschliessen</button>

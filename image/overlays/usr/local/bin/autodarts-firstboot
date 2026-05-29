@@ -393,7 +393,7 @@ else
     usermod -aG "$USER_GROUPS" autodarts || true
   fi
 fi
-echo "autodarts:autodarts" | chpasswd
+passwd -l autodarts >/dev/null 2>&1 || true
 install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.bash_profile
 install -m 0644 "$CONFIG_DIR/bash_profile" /home/autodarts/.profile
 touch /home/autodarts/.hushlogin

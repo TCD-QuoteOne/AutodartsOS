@@ -64,6 +64,8 @@ Im Raspberry Pi Imager kannst du setzen:
 
 Autodarts Pi OS importiert diese Werte beim ersten Boot und deaktiviert danach den Raspberry-Pi-Imager-Erststart-Hook. Dadurch springt der Imager-Erststart nach einem Reboot nicht erneut in den Systemstart.
 
+Aus Sicherheitsgruenden ist SSH im Beispiel-Build standardmaessig deaktiviert. Wenn SSH im Imager aktiviert wird, ist Passwort-SSH im Image deaktiviert und es sollten SSH-Keys verwendet werden.
+
 ### 3. Erster Start
 
 Wenn die Netzwerkdaten stimmen, verbindet sich der Pi direkt mit deinem Netzwerk. Das Webpanel ist danach erreichbar unter:
@@ -102,6 +104,8 @@ Das Webpanel bietet:
 - Adminbereich
 - Logs und Systemstatus
 - Ko-fi-Link
+
+Das Webpanel ist fuer lokale Netze gedacht. Zugriffe aus oeffentlichen IP-Bereichen werden standardmaessig abgewiesen. Stelle das Webpanel nicht per Router-Portfreigabe direkt ins Internet.
 
 Der lokale Autodarts Manager ist vorgesehen unter:
 
