@@ -43,6 +43,12 @@ Autodarts Pi OS ist aktuell ein experimentelles, aber bereits nutzbares Applianc
 
 Das Projekt ist kein offizielles Autodarts-Projekt.
 
+## Sicherheitsmodell
+
+Autodarts Pi OS ist als lokale Appliance gedacht, nicht als direkt im Internet erreichbarer Server. Die einfache Einrichtung bleibt bewusst erhalten: Der erste Headless-Zugang nutzt `Autodarts-Setup` mit dem Passwort `autodarts`. Beim Setup muss ein eigenes Admin-Passwort gesetzt werden; dieses schuetzt danach auch den Recovery-Hotspot.
+
+Das Webpanel blockt oeffentliche IP-Bereiche standardmaessig, nutzt Login, CSRF-Schutz, Rate-Limiting und ablaufende Sessions. Der Autodarts-Installer wird im Release-Image gebuendelt und vor der Ausfuehrung per SHA256 geprueft. Bitte keine Router-Portfreigabe auf Webpanel oder Autodarts Manager setzen.
+
 ## Einrichtung Fuer Nutzer
 
 ### 1. Image flashen

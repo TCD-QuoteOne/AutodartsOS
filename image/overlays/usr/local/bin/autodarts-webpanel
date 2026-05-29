@@ -471,6 +471,16 @@ def deny_forbidden(handler):
     handler.wfile.write(body)
 
 
+def login_notice(handler):
+    query = parse_qs(urlparse(handler.path).query, keep_blank_values=True)
+    state = query.get("login", [""])[0]
+    if state == "locked":
+        return """<div class="panel danger"><p><strong>Zu viele Fehlversuche.</strong> Bitte warte kurz und versuche es dann erneut.</p></div>"""
+    if state == "failed":
+        return """<div class="panel danger"><p><strong>Login fehlgeschlagen.</strong> Bitte pruefe das Passwort.</p></div>"""
+    return ""
+
+
 def render_page(title, content, refresh_seconds=None):
     refresh = ""
     if refresh_seconds:
@@ -573,7 +583,7 @@ def render_page(title, content, refresh_seconds=None):
     header p {{ margin: 9px 0 0; color: var(--muted); font-size: 14px; }}
     .tabs {{
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
       gap: 8px;
       margin: 0 0 14px;
       padding: 8px;
@@ -688,6 +698,19 @@ def render_page(title, content, refresh_seconds=None):
     }}
     .log-box {{ max-height: 360px; overflow: auto; }}
     .muted {{ color: var(--muted); }}
+    .notice {{
+      border-color: rgba(72, 224, 107, 0.34);
+      background: linear-gradient(145deg, rgba(72,224,107,0.08), transparent 42%), var(--surface);
+    }}
+    .danger {{
+      border-color: rgba(255, 101, 101, 0.42);
+      background: linear-gradient(145deg, rgba(255,101,101,0.1), transparent 42%), var(--surface);
+    }}
+    .danger button {{
+      border-color: rgba(255, 101, 101, 0.5);
+      background: linear-gradient(180deg, #ff6565, #c92f3d);
+      box-shadow: 0 10px 22px rgba(201, 47, 61, 0.22);
+    }}
     @media (max-width: 620px) {{
       main {{ padding: 10px 8px 18px; }}
       header {{ min-height: 82px; padding: 14px; }}
@@ -1250,7 +1273,7 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 body = render_page(
                     "Autodarts Pi OS Admin Login",
-                    """<div class="panel"><p>Bitte melde dich am lokalen Adminbereich an.</p></div>
+                    f"""{login_notice(self)}<div class="panel"><p>Bitte melde dich am lokalen Adminbereich an.</p></div>
 <form method="post" action="/login">
   <input type="hidden" name="next" value="/admin">
   <label for="password">Admin-Passwort</label>
@@ -1281,20 +1304,29 @@ class Handler(BaseHTTPRequestHandler):
             admin_notice = ""
             if admin_status:
                 admin_notice = f"""<div class="panel"><p><strong>{html.escape(admin_status.get("message", ""))}</strong></p></div>"""
-            content = f"""{admin_notice}<div class="panel"><h2>Status</h2><p>Setup-Zustand: <strong>{html.escape(read_setup_state())}</strong></p><p>Zugewiesene IP: <strong>{primary_ip}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))} | Hotspot: {html.escape(str(net["setup_hotspot_active"]))}</p><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></div>
+            default_password_notice = ""
+            if is_default_setup_password(config):
+                default_password_notice = """<div class="panel danger"><h2>Sicherheit</h2><p>Das Standardpasswort ist noch aktiv. Oeffne das Setup und setze ein eigenes Admin-Passwort, bevor du das System dauerhaft nutzt.</p><a class="button" href="/setup">Passwort setzen</a></div>"""
+            content = f"""{admin_notice}{default_password_notice}<div class="panel"><h2>Status</h2><p>Setup-Zustand: <strong>{html.escape(read_setup_state())}</strong></p><p>Zugewiesene IP: <strong>{primary_ip}</strong></p><p>Ethernet: {html.escape(str(net["ethernet_connected"]))} | WLAN: {html.escape(str(net["wifi_connected"]))} | Hotspot: {html.escape(str(net["setup_hotspot_active"]))}</p><pre>{html.escape(net["ip_addresses"]["stdout"])}</pre></div>
 <section><h2>Dienste</h2><table>{service_rows}</table></section>
-<section class="panel"><h2>Aktionen</h2>
-  <a class="button" href="/setup">Setup öffnen</a>
+<section class="panel"><h2>Diagnose</h2>
+  <a class="button" href="/setup">Setup oeffnen</a>
   <a class="button" href="/health.json">Systemstatus</a>
   <a class="button" href="/logs/kiosk">Kiosk-Log</a>
   <a class="button" href="/logs/firstboot">Firstboot-Log</a>
   <a class="button" href="/logs/network">Netzwerk-Log</a>
   <a class="button" href="/logs/install">Install-Log</a>
+</section>
+<section class="panel"><h2>Recovery</h2>
+  <p class="muted">Startet den Setup-Hotspot wieder, ohne Daten zu loeschen. Gut, wenn Netzwerkdaten geaendert werden muessen.</p>
   <form method="post" action="/admin/recovery">
     {csrf_input()}
     <label><input type="checkbox" name="confirm_recovery" value="yes"> Recovery-Hotspot wirklich starten</label>
     <button type="submit">Recovery-Hotspot starten</button>
   </form>
+</section>
+<section class="panel danger"><h2>Factory Reset</h2>
+  <p>Setzt das System auf Werkseinstellungen zurueck. Diese Aktion ist fuer Verkauf, Neuaufbau oder schwere Fehlkonfiguration gedacht.</p>
   <form method="post" action="/admin/factory-reset">
     {csrf_input()}
     <label><input type="checkbox" name="confirm_factory_reset" value="yes"> System wirklich auf Werkseinstellungen zuruecksetzen</label>
@@ -1317,7 +1349,7 @@ class Handler(BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 body = render_page(
                     "Autodarts Pi OS Login",
-                    """<div class="panel"><p>Bitte melde dich am lokalen Setup an. Standard beim ersten Start: Passwort <strong>autodarts</strong>.</p></div>
+                    f"""{login_notice(self)}<div class="panel notice"><p>Bitte melde dich am lokalen Setup an. Standard beim ersten Start: Passwort <strong>autodarts</strong>. Beim Abschluss setzt du ein eigenes Admin- und Recovery-Passwort.</p></div>
 <form method="post" action="/login">
   <input type="hidden" name="next" value="/setup">
   <label for="password">Setup-Passwort</label>
