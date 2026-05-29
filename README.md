@@ -85,12 +85,12 @@ Wenn kein funktionierendes Netzwerk vorhanden ist, startet der Setup-Hotspot:
 
 ```text
 WLAN: Autodarts-Setup
-Passwort: wird beim ersten Start geraetespezifisch erzeugt
+Passwort: autodarts
 Setup-Adresse: http://auto.setup.go
 Fallback-IP: http://10.42.0.1
 ```
 
-Das Hotspot-Passwort wird auf einem angeschlossenen Bildschirm und im lokalen Setup-Status angezeigt. Wenn WLAN-Daten ueber den Raspberry Pi Imager gesetzt wurden, versucht das System zuerst diese Verbindung und startet den Hotspot nur als Fallback.
+Fuer den einfachen Headless-Erststart ist das Erstpasswort `autodarts`. Beim Setup muss ein eigenes Admin-Passwort gesetzt werden. Dieses neue Passwort wird danach auch als Passwort fuer den Recovery-Hotspot verwendet. Wenn WLAN-Daten ueber den Raspberry Pi Imager gesetzt wurden, versucht das System zuerst diese Verbindung und startet den Hotspot nur als Fallback.
 
 Falls ein Handy trotz verbundenem Hotspot keine Seite oeffnet, mobile Daten fuer die Einrichtung kurz deaktivieren oder das WLAN als Netzwerk ohne Internet akzeptieren.
 

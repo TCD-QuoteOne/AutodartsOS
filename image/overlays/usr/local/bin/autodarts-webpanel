@@ -809,6 +809,7 @@ class Handler(BaseHTTPRequestHandler):
                 run_command(["systemctl", "restart", "avahi-daemon.service"])
             if admin_password:
                 config["setup_admin_password"] = admin_password
+                config["setup_hotspot_password"] = admin_password
                 reset_session_token()
             if wifi_ssid:
                 stored_wifi = read_wifi_credentials()
