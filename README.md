@@ -113,6 +113,8 @@ Das Webpanel nutzt bewusst lokales HTTP. Fuer `*.local` und den Setup-Hotspot wa
 
 Nach dem ersten Passwortwechsel wird das Admin-Passwort nur noch als Hash gespeichert. Login-Fehlversuche werden kurzzeitig gebremst, damit einfache Rate-Limit-Angriffe im lokalen Netz nicht endlos durchlaufen.
 
+Admin-Sitzungen laufen automatisch ab und koennen im Webpanel ueber `Logout` beendet werden. Der Autodarts-Startpfad akzeptiert keine frei formulierten Shell-Kommandos, sondern nur bekannte Autodarts-Binaries oder die automatische Erkennung.
+
 Der lokale Autodarts Manager ist vorgesehen unter:
 
 ```text

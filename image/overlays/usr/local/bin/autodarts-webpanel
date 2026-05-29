@@ -37,6 +37,7 @@ DEFAULT_SETUP_PASSWORD = "autodarts"
 PASSWORD_HASH_PREFIX = "pbkdf2_sha256"
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCK_SECONDS = 120
+SESSION_MAX_AGE_SECONDS = 12 * 60 * 60
 
 
 def secure_file(path, mode=0o640):
@@ -152,6 +153,15 @@ def reset_session_token():
     SESSION_FILE.write_text(secrets.token_urlsafe(32), encoding="utf-8")
     SESSION_FILE.chmod(0o600)
     reset_csrf_token()
+
+
+def session_active():
+    if not SESSION_FILE.exists():
+        return False
+    try:
+        return time.time() - SESSION_FILE.stat().st_mtime <= SESSION_MAX_AGE_SECONDS
+    except OSError:
+        return False
 
 
 def csrf_token():
@@ -435,7 +445,7 @@ def is_authenticated(handler):
     header = handler.headers.get("Cookie", "")
     jar = cookies.SimpleCookie()
     jar.load(header)
-    return jar.get("autodarts_setup") and jar["autodarts_setup"].value == session_token()
+    return session_active() and jar.get("autodarts_setup") and jar["autodarts_setup"].value == session_token()
 
 
 def is_default_setup_password(config):
@@ -477,6 +487,7 @@ def render_page(title, content, refresh_seconds=None):
         ("play", "/app?target=play", "Autodarts Play"),
         ("setup", "/setup", "Netzwerk"),
         ("admin", "/admin", "Admin"),
+        ("logout", "/logout", "Logout"),
     ]
     nav = "".join(
         f"""<a class="tab{' primary' if key == active else ''}" href="{href}">{label}</a>"""
@@ -855,9 +866,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if password_matches(password, config):
                 record_login_success(self)
+                reset_session_token()
                 self.send_response(303)
                 self.send_header("Location", target)
-                self.send_header("Set-Cookie", f"autodarts_setup={session_token()}; Path=/; HttpOnly; SameSite=Strict")
+                self.send_header("Set-Cookie", f"autodarts_setup={session_token()}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_MAX_AGE_SECONDS}")
                 self.end_headers()
                 return
             record_login_failure(self)
@@ -1065,6 +1077,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/":
             redirect(self, "/kiosk" if read_setup_state() == "configured" else "/setup")
+            return
+
+        if path == "/logout":
+            reset_session_token()
+            self.send_response(303)
+            self.send_header("Location", "/setup")
+            self.send_header("Set-Cookie", "autodarts_setup=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+            self.end_headers()
             return
 
         if path == "/kiosk":

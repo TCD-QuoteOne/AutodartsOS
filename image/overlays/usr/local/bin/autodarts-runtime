@@ -7,6 +7,34 @@ command_from_config() {
   awk -F '"' '/^autodarts_command[[:space:]]*=/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null || true
 }
 
+run_autodarts_binary() {
+  local binary="$1"
+  shift || true
+  if id autodarts >/dev/null 2>&1; then
+    exec runuser -u autodarts -- "$binary" "$@"
+  fi
+  exec "$binary" "$@"
+}
+
+run_configured_command() {
+  local command="$1"
+  local binary arg
+  read -r binary arg <<< "$command"
+  case "$binary" in
+    autodarts|/usr/bin/autodarts|/usr/local/bin/autodarts|/home/autodarts/.local/bin/autodarts|/home/autodarts/.local/opt/autodarts/autodarts)
+      if [[ -n "${arg:-}" ]]; then
+        run_autodarts_binary "$binary" "$arg"
+      fi
+      run_autodarts_binary "$binary"
+      ;;
+    *)
+      echo "Refusing unsafe autodarts_command '$command'. Only known Autodarts binaries are allowed."
+      echo "Use autodarts_command=/usr/local/bin/autodarts-runtime for automatic detection."
+      sleep infinity
+      ;;
+  esac
+}
+
 COMMAND="$(command_from_config)"
 
 if [[ -z "$COMMAND" || "$COMMAND" == "/usr/local/bin/autodarts-runtime" ]]; then
@@ -17,17 +45,11 @@ if [[ -z "$COMMAND" || "$COMMAND" == "/usr/local/bin/autodarts-runtime" ]]; then
     sleep infinity
   fi
   if command -v autodarts >/dev/null 2>&1; then
-    if id autodarts >/dev/null 2>&1; then
-      exec runuser -u autodarts -- autodarts
-    fi
-    exec autodarts
+    run_autodarts_binary autodarts
   fi
   echo "Autodarts runtime command is not configured yet and no autodarts binary/service was found."
   echo "Set autodarts_command in $CONFIG_FILE or check /var/log/autodarts-install.log."
   sleep infinity
 fi
 
-if id autodarts >/dev/null 2>&1; then
-  exec runuser -u autodarts -- bash -lc "$COMMAND"
-fi
-exec $COMMAND
+run_configured_command "$COMMAND"
