@@ -503,6 +503,11 @@ def render_page(title, content, refresh_seconds=None):
         f"""<a class="tab{' primary' if key == active else ''}" href="{href}">{label}</a>"""
         for key, href, label in tabs
     )
+    mobile_nav_label = next((label for key, _, label in tabs if key == active), "Menue")
+    mobile_nav = "".join(
+        f"""<a class="mobile-nav-link{' primary' if key == active else ''}" href="{href}">{label}</a>"""
+        for key, href, label in tabs
+    )
     return f"""<!doctype html>
 <html lang="de">
 <head>
@@ -607,6 +612,52 @@ def render_page(title, content, refresh_seconds=None):
       font-weight: 850;
     }}
     .tab.primary, .tab:hover {{
+      border-color: rgba(86, 145, 255, 0.48);
+      background: var(--blue-soft);
+      color: var(--text);
+    }}
+    .mobile-nav {{ display: none; }}
+    .mobile-nav summary {{
+      min-height: 46px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 13, 20, 0.82);
+      color: var(--text);
+      font-weight: 850;
+      cursor: pointer;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+      list-style: none;
+    }}
+    .mobile-nav summary::-webkit-details-marker {{ display: none; }}
+    .mobile-nav summary::after {{
+      content: "v";
+      float: right;
+      color: var(--muted);
+    }}
+    .mobile-nav[open] summary::after {{ content: "^"; }}
+    .mobile-nav-menu {{
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 13, 20, 0.92);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+    }}
+    .mobile-nav-link {{
+      display: flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 850;
+    }}
+    .mobile-nav-link.primary, .mobile-nav-link:hover {{
       border-color: rgba(86, 145, 255, 0.48);
       background: var(--blue-soft);
       color: var(--text);
@@ -717,7 +768,8 @@ def render_page(title, content, refresh_seconds=None):
       .brand-logo {{ width: 48px; height: 48px; }}
       .support-link {{ width: 48px; height: 48px; }}
       .support-link img {{ width: 34px; height: 34px; }}
-      .tabs {{ grid-template-columns: 1fr 1fr; }}
+      .tabs {{ display: none; }}
+      .mobile-nav {{ display: block; margin-bottom: 14px; }}
       form, .panel, section:not(.panel) {{ padding: 16px; }}
       button, a.button {{ width: 100%; margin-right: 0; }}
       th, td {{ display: block; width: 100%; }}
@@ -741,6 +793,12 @@ def render_page(title, content, refresh_seconds=None):
     <nav class="tabs" aria-label="Schnellzugriff">
       {nav}
     </nav>
+    <details class="mobile-nav">
+      <summary>Menue: {html.escape(mobile_nav_label)}</summary>
+      <div class="mobile-nav-menu">
+        {mobile_nav}
+      </div>
+    </details>
     {content}
   </main>
 </body>
