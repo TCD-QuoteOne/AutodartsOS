@@ -9,6 +9,7 @@ OUT="${2:-${AUDIT_OUT:-$DEFAULT_OUT}}"
 PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
+LAST_RESULT=""
 
 usage() {
   cat <<'EOF'
@@ -155,7 +156,7 @@ assert_http() {
 
   log "Body preview:"
   sed -n '1,35p' "$body" 2>/dev/null | sed 's/^/  /' | tee -a "$OUT" >/dev/null
-  printf '%s\n' "$body|$headers|$meta|$url"
+  LAST_RESULT="$body|$headers|$meta|$url"
 }
 
 assert_body() {
@@ -222,18 +223,21 @@ if have getent; then
 fi
 
 section "Core pages"
-root_result="$(assert_http "/" "root redirect or page" "^(200|301|302|303)$")"
+assert_http "/" "root redirect or page" "^(200|301|302|303)$"
+root_result="$LAST_RESULT"
 root_body="$(extract_body "$root_result")"
 root_meta="$(extract_meta "$root_result")"
 root_effective="$(meta_value url_effective "$root_meta")"
 info "Root effective URL: ${root_effective:-unknown}"
 
-setup_result="$(assert_http "/setup" "setup page" "^(200|301|302|303)$")"
+assert_http "/setup" "setup page" "^(200|301|302|303)$"
+setup_result="$LAST_RESULT"
 setup_body="$(extract_body "$setup_result")"
 assert_body_warn "$setup_body" "Autodarts Pi OS branding on setup/login" "Autodarts Pi OS|Setup-Passwort|Admin-Passwort|Einloggen"
 assert_body_warn "$setup_body" "Ko-fi support link uses app wrapper" "/app\\?target=kofi"
 
-kiosk_result="$(assert_http "/kiosk" "kiosk page" "^(200|301|302|303)$")"
+assert_http "/kiosk" "kiosk page" "^(200|301|302|303)$"
+kiosk_result="$LAST_RESULT"
 kiosk_body="$(extract_body "$kiosk_result")"
 if contains "$kiosk_body" "Autodarts Pi OS ist bereit|/app\\?target=manager|/app\\?target=config"; then
   ok "Kiosk overview or redirect target looks correct."
@@ -243,7 +247,8 @@ fi
 
 section "Toolbar wrapper routes"
 for target in manager config play kofi health log-kiosk log-network log-firstboot log-install; do
-  result="$(assert_http "/app?target=${target}" "toolbar target ${target}" "^(200)$")"
+  assert_http "/app?target=${target}" "toolbar target ${target}" "^(200)$"
+  result="$LAST_RESULT"
   body="$(extract_body "$result")"
   assert_body "$body" "Toolbar shell for ${target}" "<nav class=\"bar\">"
   assert_body "$body" "Home button for ${target}" "href=\"/kiosk\""
@@ -254,28 +259,34 @@ for target in manager config play kofi health log-kiosk log-network log-firstboo
 done
 
 section "Wrapped utility content"
-health_shell="$(assert_http "/app?target=health" "health wrapper" "^(200)$")"
+assert_http "/app?target=health" "health wrapper" "^(200)$"
+health_shell="$LAST_RESULT"
 health_shell_body="$(extract_body "$health_shell")"
 assert_body "$health_shell_body" "health iframe source" "iframe src=\"/health.json\""
 
-kiosk_log_shell="$(assert_http "/app?target=log-kiosk" "kiosk log wrapper" "^(200)$")"
+assert_http "/app?target=log-kiosk" "kiosk log wrapper" "^(200)$"
+kiosk_log_shell="$LAST_RESULT"
 kiosk_log_shell_body="$(extract_body "$kiosk_log_shell")"
 assert_body "$kiosk_log_shell_body" "kiosk log iframe source" "iframe src=\"/logs/kiosk\""
 
-play_shell="$(assert_http "/app?target=play" "Autodarts Play wrapper" "^(200)$")"
+assert_http "/app?target=play" "Autodarts Play wrapper" "^(200)$"
+play_shell="$LAST_RESULT"
 play_shell_body="$(extract_body "$play_shell")"
 assert_body "$play_shell_body" "Autodarts Play iframe source" "iframe src=\"https://play.autodarts.io"
 
-kofi_shell="$(assert_http "/app?target=kofi" "Ko-fi wrapper" "^(200)$")"
+assert_http "/app?target=kofi" "Ko-fi wrapper" "^(200)$"
+kofi_shell="$LAST_RESULT"
 kofi_shell_body="$(extract_body "$kofi_shell")"
 assert_body "$kofi_shell_body" "Ko-fi local support frame iframe source" "iframe src=\"/support-frame\""
 
-support_result="$(assert_http "/support-frame" "Ko-fi support frame" "^(200)$")"
+assert_http "/support-frame" "Ko-fi support frame" "^(200)$"
+support_result="$LAST_RESULT"
 support_body="$(extract_body "$support_result")"
 assert_body "$support_body" "Ko-fi outbound link" "https://ko-fi.com/autodartsos"
 
 section "Raw API and log endpoints"
-health_result="$(assert_http "/health.json" "raw health.json" "^(200|301|302|303)$")"
+assert_http "/health.json" "raw health.json" "^(200|301|302|303)$"
+health_result="$LAST_RESULT"
 health_body="$(extract_body "$health_result")"
 if contains "$health_body" "\"config\"|\"network\"|\"services\""; then
   ok "Raw health.json returns JSON-like diagnostics."
@@ -284,7 +295,8 @@ else
 fi
 
 for path in "/logs/kiosk" "/logs/network" "/logs/firstboot" "/logs/install"; do
-  result="$(assert_http "$path" "raw ${path}" "^(200|301|302|303)$")"
+  assert_http "$path" "raw ${path}" "^(200|301|302|303)$"
+  result="$LAST_RESULT"
   meta="$(extract_meta "$result")"
   code="$(meta_value http_code "$meta")"
   if [[ "$code" == "200" ]]; then
