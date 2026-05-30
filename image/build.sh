@@ -126,6 +126,15 @@ if [[ -f "$CMDLINE" ]]; then
     grep -qw "$arg" "$CMDLINE" || sed -i "s/$/ $arg/" "$CMDLINE"
   done
 fi
+
+BOOT_CONFIG="${ROOTFS_DIR}/boot/firmware/config.txt"
+if [[ -f "$BOOT_CONFIG" ]]; then
+  if grep -qE '^[#[:space:]]*disable_splash=' "$BOOT_CONFIG"; then
+    sed -i 's/^[#[:space:]]*disable_splash=.*/disable_splash=1/' "$BOOT_CONFIG"
+  else
+    printf '\n# Autodarts Pi OS: hide Raspberry Pi firmware splash before Plymouth starts\ndisable_splash=1\n' >> "$BOOT_CONFIG"
+  fi
+fi
 SCRIPT
 
 chmod +x "$STAGE_DIR/prerun.sh"

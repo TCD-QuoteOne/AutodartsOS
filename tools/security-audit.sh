@@ -170,6 +170,81 @@ fi
 run_cmd "uptime" uptime
 run_cmd "hostnamectl" hostnamectl
 
+section "Boot and first-run state"
+FIRSTBOOT_DONE="/var/lib/autodarts-pi-os/firstboot.done"
+BOOT_CMDLINE=""
+BOOT_CONFIG=""
+for candidate in /boot/firmware/cmdline.txt /boot/cmdline.txt; do
+  if [[ -f "$candidate" ]]; then
+    BOOT_CMDLINE="$candidate"
+    break
+  fi
+done
+for candidate in /boot/firmware/config.txt /boot/config.txt; do
+  if [[ -f "$candidate" ]]; then
+    BOOT_CONFIG="$candidate"
+    break
+  fi
+done
+
+if [[ -f "$FIRSTBOOT_DONE" ]]; then
+  ok "Autodarts firstboot marker exists: $FIRSTBOOT_DONE"
+else
+  warn "Autodarts firstboot marker is missing. This is normal only during the first boot."
+fi
+
+active_firstrun=""
+for candidate in /boot/firmware/firstrun.sh /boot/firstrun.sh; do
+  if [[ -f "$candidate" ]]; then
+    active_firstrun="${active_firstrun}${candidate} "
+  fi
+done
+if [[ -n "$active_firstrun" ]]; then
+  fail "Active Raspberry Pi Imager firstrun script still exists: $active_firstrun"
+else
+  ok "No active Raspberry Pi Imager firstrun script found."
+fi
+
+disabled_firstrun=""
+for candidate in /boot/firmware/firstrun.sh.autodarts-disabled /boot/firstrun.sh.autodarts-disabled; do
+  if [[ -f "$candidate" ]]; then
+    disabled_firstrun="${disabled_firstrun}${candidate} "
+  fi
+done
+[[ -n "$disabled_firstrun" ]] && info "Disabled Imager firstrun backup found: $disabled_firstrun"
+
+if [[ -n "$BOOT_CMDLINE" ]]; then
+  ok "Boot cmdline found: $BOOT_CMDLINE"
+  run_cmd "cat $BOOT_CMDLINE" cat "$BOOT_CMDLINE"
+  cmdline_text="$(cat "$BOOT_CMDLINE" 2>/dev/null || true)"
+  if printf '%s' "$cmdline_text" | grep -Eq 'systemd\.run=|firstrun|kernel-command-line\.target'; then
+    fail "Boot cmdline still contains Raspberry Pi Imager first-run trigger."
+  else
+    ok "Boot cmdline does not contain Imager first-run trigger."
+  fi
+  for arg in quiet splash logo.nologo vt.global_cursor_default=0 systemd.show_status=false rd.systemd.show_status=false; do
+    if printf '%s' "$cmdline_text" | grep -qw "$arg"; then
+      ok "Boot cmdline contains $arg."
+    else
+      warn "Boot cmdline is missing $arg."
+    fi
+  done
+else
+  warn "Boot cmdline file was not found."
+fi
+
+if [[ -n "$BOOT_CONFIG" ]]; then
+  ok "Boot config found: $BOOT_CONFIG"
+  run_cmd "grep disable_splash $BOOT_CONFIG" sh -c "grep -nE '^[#[:space:]]*disable_splash=' '$BOOT_CONFIG' || true"
+  if grep -qE '^disable_splash=1$' "$BOOT_CONFIG"; then
+    ok "Raspberry Pi firmware splash is disabled with disable_splash=1."
+  else
+    warn "disable_splash=1 is missing. The Raspberry Pi firmware splash may appear before Plymouth."
+  fi
+else
+  warn "Boot config file was not found."
+fi
+
 section "Autodarts Pi OS configuration"
 if [[ -f "$CONFIG_FILE" ]]; then
   ok "Config file exists: $CONFIG_FILE"
