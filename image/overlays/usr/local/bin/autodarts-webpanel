@@ -495,7 +495,6 @@ def render_page(title, content, refresh_seconds=None):
         ("manager", "/app?target=manager", "Kameras"),
         ("config", "/app?target=config", "Kamera-Setup"),
         ("play", "/app?target=play", "Autodarts Play"),
-        ("setup", "/setup", "Netzwerk"),
         ("admin", "/admin", "Admin"),
         ("logout", "/logout", "Logout"),
     ]
@@ -923,15 +922,31 @@ def render_support_frame():
     img { width: 88px; height: 88px; object-fit: contain; margin-bottom: 12px; filter: drop-shadow(0 10px 24px rgba(0,0,0,.34)); }
     h1 { margin: 0 0 10px; font-size: 26px; letter-spacing: 0; }
     p { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
-    a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 8px; background: linear-gradient(180deg, #3d86ff, #1f65db); color: #f8fbff; font-weight: 850; text-decoration: none; }
+    .actions { display: grid; gap: 10px; }
+    button, a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border: 1px solid rgba(86,145,255,.42); border-radius: 8px; background: linear-gradient(180deg, #3d86ff, #1f65db); color: #f8fbff; font: inherit; font-weight: 850; text-decoration: none; cursor: pointer; }
+    a.secondary { background: rgba(31,43,58,.9); color: var(--text); }
+    .hint { margin-top: 14px; font-size: 13px; }
   </style>
+  <script>
+    function openKofi() {
+      const url = "https://ko-fi.com/autodartsos";
+      const popup = window.open(url, "autodarts_kofi", "popup=yes,width=980,height=760,noopener,noreferrer");
+      if (!popup) {
+        document.getElementById("fallback").hidden = false;
+      }
+    }
+  </script>
 </head>
 <body>
   <main>
     <img src="/kofi-logo.webp" alt="">
     <h1>Projekt unterstuetzen</h1>
-    <p>Danke, dass du Autodarts Pi OS nutzt. Ko-fi wird aus Sicherheitsgruenden nicht direkt im Kiosk eingebettet, damit keine externe Seite die lokale Steuerleiste uebernimmt.</p>
-    <a href="https://ko-fi.com/autodartsos" target="_blank" rel="noopener">Ko-fi oeffnen</a>
+    <p>Danke, dass du Autodarts Pi OS nutzt. Ko-fi wird nicht direkt in die lokale Steuerleiste eingebettet, weil externe Seiten iFrames oft blockieren.</p>
+    <div class="actions">
+      <button type="button" onclick="openKofi()">Ko-fi in extra Fenster oeffnen</button>
+      <a class="secondary" href="https://ko-fi.com/autodartsos" target="_blank" rel="noopener">Direktlink nutzen</a>
+    </div>
+    <p id="fallback" class="hint" hidden>Wenn kein neues Fenster erscheint, blockiert Chromium im Kiosk den Popup. Nutze den Direktlink oder oeffne <strong>https://ko-fi.com/autodartsos</strong> auf einem Handy.</p>
   </main>
 </body>
 </html>"""
