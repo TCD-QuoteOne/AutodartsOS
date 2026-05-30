@@ -83,6 +83,22 @@ Beispiel:
 
 Das Script prueft mit leichten Verbindungs- und HTTP-Checks, ob sensible Dienste von aussen erreichbar sind. Sicher ist normalerweise: Ports `22`, `80`, `3180`, `53` und `67` sind von extern nicht erreichbar. Wenn Port `80` zwar erreichbar ist, das Webpanel aber mit `403` blockt, ist die App-Schutzlogik aktiv; trotzdem sollte die Router-Freigabe entfernt werden.
 
+### Webpanel-Test Im Selben Netzwerk
+
+Um die Webpanel-Anpassungen aus dem `develop-security`-Branch von einem Windows-Rechner im selben Netzwerk zu pruefen:
+
+```powershell
+bash ./tools/lan-webpanel-audit.sh http://autodarts-pi.local
+```
+
+Oder direkt mit IP:
+
+```powershell
+bash ./tools/lan-webpanel-audit.sh http://192.168.1.124
+```
+
+Das Script prueft unter anderem Setup, Kiosk, mobile Navigation, Ko-fi-Wrapper, Health-Wrapper, Log-Wrapper und die obere Taskleiste fuer `/app?target=...`. Die Ergebnisdatei wird als `autodarts-lan-webpanel-audit-YYYYMMDD-HHMMSS.txt` abgelegt.
+
 ## Einrichtung Fuer Nutzer
 
 ### 1. Image flashen
