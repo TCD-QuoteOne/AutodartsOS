@@ -49,6 +49,23 @@ Autodarts Pi OS ist als lokale Appliance gedacht, nicht als direkt im Internet e
 
 Das Webpanel blockt oeffentliche IP-Bereiche standardmaessig, nutzt Login, CSRF-Schutz, Rate-Limiting und ablaufende Sessions. Der Autodarts-Installer wird im Release-Image gebuendelt und vor der Ausfuehrung per SHA256 geprueft. Bitte keine Router-Portfreigabe auf Webpanel oder Autodarts Manager setzen.
 
+## Sicherheits-Audit Auf Dem Pi
+
+Nach dem Flashen oder vor einem Release-Test kann auf dem Raspberry Pi ein read-only Sicherheitsbericht erzeugt werden:
+
+```bash
+cd /opt/AutodartsOS
+sudo ./tools/security-audit.sh
+```
+
+Das Script prueft unter anderem lokale Dienste, offene Ports, SSH, Webpanel-Konfiguration, Hotspot, sensible Dateirechte, Benutzer, Firewall-Hinweise, direkte oeffentliche IPs und externe Erreichbarkeitshinweise. Die Ergebnisdatei wird im aktuellen Ordner als `autodarts-security-audit-YYYYMMDD-HHMMSS.txt` abgelegt.
+
+Ein echter externer Portcheck ist von innen nicht voll beweisbar. Wenn ein eigener externer Pruefdienst vorhanden ist, kann er optional so angebunden werden:
+
+```bash
+sudo AUDIT_EXTERNAL_PORTCHECK_URL="https://example.com/check?host={host}&port={port}" ./tools/security-audit.sh
+```
+
 ## Einrichtung Fuer Nutzer
 
 ### 1. Image flashen
