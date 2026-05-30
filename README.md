@@ -66,6 +66,23 @@ Ein echter externer Portcheck ist von innen nicht voll beweisbar. Wenn ein eigen
 sudo AUDIT_EXTERNAL_PORTCHECK_URL="https://example.com/check?host={host}&port={port}" ./tools/security-audit.sh
 ```
 
+### Externer Sicherheitscheck
+
+Der externe Check muss von ausserhalb des Kundennetzes laufen, zum Beispiel auf einem VPS, ueber einen mobilen Hotspot oder von einem anderen Internetanschluss. Ziel ist die oeffentliche IP oder Domain des Anschlusses:
+
+```bash
+cd /opt/AutodartsOS
+./tools/external-security-audit.sh <oeffentliche-ip-oder-domain>
+```
+
+Beispiel:
+
+```bash
+./tools/external-security-audit.sh 203.0.113.10
+```
+
+Das Script prueft mit leichten Verbindungs- und HTTP-Checks, ob sensible Dienste von aussen erreichbar sind. Sicher ist normalerweise: Ports `22`, `80`, `3180`, `53` und `67` sind von extern nicht erreichbar. Wenn Port `80` zwar erreichbar ist, das Webpanel aber mit `403` blockt, ist die App-Schutzlogik aktiv; trotzdem sollte die Router-Freigabe entfernt werden.
+
 ## Einrichtung Fuer Nutzer
 
 ### 1. Image flashen
