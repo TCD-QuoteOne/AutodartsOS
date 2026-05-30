@@ -208,14 +208,41 @@ autodarts-factory-reset
 
 ## Build Workflow
 
-Der Release-Build laeuft auf einem Linux-System mit `pi-gen`, zum Beispiel unter `/opt/pi-gen`.
+Der Release-Build laeuft auf einem Linux-System mit `pi-gen`, zum Beispiel unter `/opt/pi-gen`. Der Ablauf ist fuer `main` und `develop-security` gleich; wichtig ist nur, den gewuenschten Branch vor dem Build sauber auszuwaehlen.
+
+### Branch Auswaehlen
+
+Fuer ein normales Release von `main`:
 
 ```bash
 cd /opt/AutodartsOS
-git pull origin main
+BUILD_BRANCH="main"
+VERSION="v0.1.18"
 
+git fetch --all
+git checkout "$BUILD_BRANCH"
+git pull origin "$BUILD_BRANCH"
+```
+
+Fuer ein Test- oder Security-Release von `develop-security`:
+
+```bash
+cd /opt/AutodartsOS
+BUILD_BRANCH="develop-security"
+VERSION="v0.1.18-security-test"
+
+git fetch --all
+git checkout "$BUILD_BRANCH"
+git pull origin "$BUILD_BRANCH"
+```
+
+### Image Bauen
+
+Danach den Build starten:
+
+```bash
 export PI_GEN_DIR="/opt/pi-gen"
-RELEASE_VERSION="v0.1.18" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
+RELEASE_VERSION="$VERSION" BUNDLE_AUTODARTS_INSTALLER=true ./tools/build-release.sh
 ```
 
 Der Build erzeugt nur die Lite-Version des Appliance-Images.
@@ -226,7 +253,6 @@ Bei `BUNDLE_AUTODARTS_INSTALLER=true` wird der Autodarts-Installer ins Image gel
 Vor jedem Release Image und Manifest pruefen:
 
 ```bash
-VERSION="v0.1.18"
 DEPLOY_DIR="/opt/pi-gen/deploy"
 IMAGE_FILE="$(ls -t "$DEPLOY_DIR"/*AutodartsPiOS*lite*.img.xz | head -n 1)"
 MANIFEST_FILE="${IMAGE_FILE%.xz}.rpi-imager-manifest"
