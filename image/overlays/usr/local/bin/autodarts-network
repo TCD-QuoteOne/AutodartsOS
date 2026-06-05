@@ -134,6 +134,21 @@ stop_hotspot() {
   fi
 }
 
+wait_wifi_client_ready() {
+  local device="$1"
+  local state i
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    state="$(nmcli -t -f DEVICE,TYPE,STATE device status | awk -F ':' -v dev="$device" '$1 == dev && $2 == "wifi" {print $3; exit}')"
+    case "$state" in
+      disconnected|unavailable|"")
+        return 0
+        ;;
+    esac
+    sleep 1
+  done
+  return 0
+}
+
 ensure_hotspot() {
   local ssid password address device
   ssid="$(config_string setup_hotspot_ssid)"
@@ -183,6 +198,11 @@ write_wifi_status() {
   local stdout="${4:-}"
   local stderr="${5:-}"
   local assigned_ip="${6:-}"
+  local password_saved="false"
+
+  if [[ -n "$(credential_string password)" ]]; then
+    password_saved="true"
+  fi
 
   mkdir -p "$(dirname "$STATUS_FILE")"
   cat > "$STATUS_FILE" <<EOF
@@ -192,6 +212,7 @@ write_wifi_status() {
     "message": "$(json_string "$message")",
     "ssid": "$(json_string "$ssid")",
     "assigned_ip": "$(json_string "$assigned_ip")",
+    "password_saved": ${password_saved},
     "stdout": "$(json_string "$stdout")",
     "stderr": "$(json_string "$stderr")"
   }
@@ -244,26 +265,49 @@ apply_pending_wifi() {
   nmcli device disconnect "$device" >/dev/null 2>&1 || true
   nmcli general hostname "$(config_string hostname || true)" >/dev/null 2>&1 || true
   iw reg set "$country" >/dev/null 2>&1 || true
+  wait_wifi_client_ready "$device"
   nmcli device wifi rescan ifname "$device" >/dev/null 2>&1 || nmcli device wifi rescan >/dev/null 2>&1 || true
   sleep 3
 
   tmp_stdout="$(mktemp)"
   tmp_stderr="$(mktemp)"
-  nmcli connection delete "$WIFI_CLIENT_NAME" >/dev/null 2>&1 || true
   set +e
-  nmcli connection add type wifi ifname "$device" con-name "$WIFI_CLIENT_NAME" ssid "$ssid" >"$tmp_stdout" 2>"$tmp_stderr"
-  code=$?
-  nmcli connection modify "$WIFI_CLIENT_NAME" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$password" >>"$tmp_stdout" 2>>"$tmp_stderr"
-  rc=$?
-  [[ "$code" -eq 0 ]] && code="$rc"
-  if [[ "$code" -eq 0 ]]; then
-    nmcli connection modify "$WIFI_CLIENT_NAME" connection.autoconnect yes ipv4.method auto ipv6.method auto >>"$tmp_stdout" 2>>"$tmp_stderr"
+  code=1
+  for attempt in 1 2 3; do
+    echo "$(date -Is) WiFi connect attempt ${attempt}/3 for '${ssid}'" >>"$tmp_stdout"
+    nmcli connection down "$WIFI_CLIENT_NAME" >>"$tmp_stdout" 2>>"$tmp_stderr" || true
+    nmcli connection delete "$WIFI_CLIENT_NAME" >>"$tmp_stdout" 2>>"$tmp_stderr" || true
+    nmcli device set "$device" managed yes >>"$tmp_stdout" 2>>"$tmp_stderr" || true
+    nmcli radio wifi on >>"$tmp_stdout" 2>>"$tmp_stderr" || true
+    nmcli device wifi rescan ifname "$device" >>"$tmp_stdout" 2>>"$tmp_stderr" || nmcli device wifi rescan >>"$tmp_stdout" 2>>"$tmp_stderr" || true
+    sleep 2
+
+    nmcli connection add \
+      type wifi \
+      ifname "$device" \
+      con-name "$WIFI_CLIENT_NAME" \
+      ssid "$ssid" \
+      802-11-wireless.mode infrastructure \
+      wifi-sec.key-mgmt wpa-psk \
+      wifi-sec.psk "$password" \
+      connection.autoconnect yes \
+      ipv4.method auto \
+      ipv6.method auto >>"$tmp_stdout" 2>>"$tmp_stderr"
     code=$?
-  fi
-  if [[ "$code" -eq 0 ]]; then
-    nmcli --wait 75 connection up "$WIFI_CLIENT_NAME" ifname "$device" >>"$tmp_stdout" 2>>"$tmp_stderr"
-    code=$?
-  fi
+
+    if [[ "$code" -eq 0 ]]; then
+      nmcli --wait 90 connection up "$WIFI_CLIENT_NAME" ifname "$device" >>"$tmp_stdout" 2>>"$tmp_stderr"
+      code=$?
+    fi
+
+    if [[ "$code" -eq 0 ]]; then
+      break
+    fi
+
+    echo "$(date -Is) WiFi connect attempt ${attempt}/3 failed with code ${code}" >>"$tmp_stdout"
+    nmcli connection down "$WIFI_CLIENT_NAME" >>"$tmp_stdout" 2>>"$tmp_stderr" || true
+    sleep $((attempt * 3))
+  done
   set -e
 
   if [[ "$code" -eq 0 ]]; then
@@ -281,7 +325,7 @@ apply_pending_wifi() {
     return 0
   else
     echo "$(date -Is) WiFi connection failed for '$ssid' with code $code"
-    write_wifi_status "failed" "WLAN konnte nicht verbunden werden. Pruefe WLAN-Name und Passwort. Der Setup-Hotspot wird wieder gestartet." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
+    write_wifi_status "failed" "WLAN-Daten wurden gespeichert, aber die Verbindung konnte nicht aufgebaut werden. Pruefe WLAN-Name, Passwort und 2,4-GHz-Erreichbarkeit. Der Setup-Hotspot wird wieder gestartet." "$ssid" "$(cat "$tmp_stdout")" "$(cat "$tmp_stderr")"
     nmcli connection down "$WIFI_CLIENT_NAME" >/dev/null 2>&1 || true
     nmcli connection delete "$WIFI_CLIENT_NAME" >/dev/null 2>&1 || true
   fi
