@@ -342,15 +342,10 @@ while true; do
     stop_hotspot
   elif [[ "$state" == "configured" ]]; then
     stop_hotspot
-  elif [[ "$state" == "factory" ]] && connected_network; then
-    echo "$(date -Is) factory setup completed by existing network connection"
-    mark_configured
-    write_network_status "Netzwerk wurde bereits vorkonfiguriert oder per Ethernet verbunden. Der Setup-Hotspot wird nicht gestartet."
-    stop_hotspot
-  elif connected_wifi; then
-    stop_hotspot
   elif [[ "$state" == "factory" || "$state" == "recovery" ]]; then
     ensure_hotspot
+  elif connected_wifi; then
+    stop_hotspot
   else
     ensure_hotspot
   fi

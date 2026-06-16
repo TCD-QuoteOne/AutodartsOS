@@ -7,6 +7,12 @@ DEFAULT_CONFIG="/usr/share/autodarts-pi-os/default-config.toml"
 SETUP_STATE="$STATE_DIR/setup.state"
 RECOVERY_FLAG="/boot/firmware/autodarts-recovery"
 FACTORY_RESET_FLAG="/boot/firmware/autodarts-factory-reset"
+WIFI_APPLY_REQUEST="$STATE_DIR/wifi-apply.request"
+WIFI_CREDENTIALS="$STATE_DIR/wifi-credentials.json"
+INSTALL_MARKER="$STATE_DIR/autodarts-install.done"
+SESSION_FILE="$STATE_DIR/webpanel-session"
+CSRF_FILE="$STATE_DIR/webpanel-csrf"
+LOGIN_ATTEMPTS_FILE="$STATE_DIR/login-attempts.json"
 
 mkdir -p "$STATE_DIR"
 
@@ -23,8 +29,18 @@ if [[ -f "$FACTORY_RESET_FLAG" ]]; then
   if [[ -f "$DEFAULT_CONFIG" ]]; then
     cp "$DEFAULT_CONFIG" "$CONFIG_FILE"
   fi
-  rm -f "$STATE_DIR"/setup-status.json "$STATE_DIR"/autodarts-install.done
+  rm -f \
+    "$STATE_DIR"/setup-status.json \
+    "$WIFI_APPLY_REQUEST" \
+    "$WIFI_CREDENTIALS" \
+    "$INSTALL_MARKER" \
+    "$SESSION_FILE" \
+    "$CSRF_FILE" \
+    "$LOGIN_ATTEMPTS_FILE"
+  nmcli connection down "Autodarts-WiFi" >/dev/null 2>&1 || true
+  nmcli connection delete "Autodarts-WiFi" >/dev/null 2>&1 || true
+  nmcli connection down "Autodarts-Setup" >/dev/null 2>&1 || true
+  nmcli connection delete "Autodarts-Setup" >/dev/null 2>&1 || true
   echo "factory" > "$SETUP_STATE"
   rm -f "$FACTORY_RESET_FLAG"
 fi
-
