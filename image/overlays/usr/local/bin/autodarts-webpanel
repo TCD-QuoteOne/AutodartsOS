@@ -1096,7 +1096,6 @@ class Handler(BaseHTTPRequestHandler):
                 config["setup_admin_password_hash"] = password_hash(admin_password)
                 config["setup_admin_password"] = ""
                 config["setup_hotspot_password"] = admin_password
-                reset_session_token()
             if wifi_ssid:
                 stored_wifi = read_wifi_credentials()
                 previous_wifi_password = stored_wifi.get("password") or config.get("wifi_password", "")
@@ -1134,14 +1133,28 @@ class Handler(BaseHTTPRequestHandler):
                 write_status(setup_status)
             write_config(config)
             current_network = network_status()
-            if not wifi_ssid and current_network["online"]:
+            if wifi_ssid:
+                redirect(self, "/setup?saved=1")
+                return
+            if current_network["online"]:
                 setup_status = read_status()
                 mark_setup_configured(
                     config,
                     setup_status,
                     "Setup wurde ueber Ethernet gespeichert und abgeschlossen. Der Kiosk startet danach den Autodarts-Konfigurationsmodus.",
                 )
-            redirect(self, "/setup?saved=1")
+                redirect(self, "/kiosk")
+                return
+            setup_status = read_status()
+            setup_status["network"] = current_network
+            setup_status["finish"] = {
+                "state": "failed",
+                "message": "Setup kann nicht abgeschlossen werden, solange weder Ethernet noch WLAN verbunden ist.",
+            }
+            write_status(setup_status)
+            config["setup_mode"] = "true"
+            write_config(config)
+            redirect(self, "/setup?finish=network-missing")
             return
 
         if self.path == "/setup/finish":
@@ -1608,13 +1621,7 @@ class Handler(BaseHTTPRequestHandler):
   <p class="muted">Passwortstatus: <strong>{html.escape(saved_password_note)}</strong></p>
   <label for="wifi_country">Land</label>
   <input id="wifi_country" name="wifi_country" value="{html.escape(config.get("wifi_country", "DE"))}">
-  <button type="submit">Speichern und anwenden</button>
-</form>
-<form method="post" action="/setup/finish">
-  {csrf_input()}
-  <h2>Setup abschliessen</h2>
-  <p class="muted">Falls das Setup noch nicht automatisch abgeschlossen wurde, kannst du es hier manuell abschliessen. Danach startet der Kiosk auf Autodarts Play statt auf diesem Setup.</p>
-  <button type="submit">Setup abschliessen</button>
+  <button type="submit">Speichern und Setup abschliessen</button>
 </form>
 <section>
   <a class="button" href="/app?target=health">Systemstatus</a>
