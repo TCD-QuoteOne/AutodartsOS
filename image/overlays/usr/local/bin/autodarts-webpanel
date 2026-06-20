@@ -712,6 +712,13 @@ def render_page(title, content, refresh_seconds=None):
     }}
     p {{ color: var(--muted); line-height: 1.55; }}
     strong {{ color: var(--text); font-weight: 800; }}
+    .local-access-address {{
+      display: inline-block;
+      margin-left: 4px;
+      color: var(--green);
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }}
     form, .panel, section:not(.panel) {{
       position: relative;
       overflow: hidden;
@@ -1008,20 +1015,21 @@ def redirect_to_setup(handler):
 
 def render_kiosk_portal(config, request_host=""):
     net = network_status()
-    autodarts_url = detect_autodarts_url(config)
-    manager_url = external_autodarts_url(request_host)
-    primary_ip = html.escape(net.get("primary_ip") or "noch keine IP")
-    install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
-    if autodarts_url:
-        autodarts_action = f"""<p class="muted">Lokaler Autodarts-Dienst erkannt: <strong>{html.escape(autodarts_url)}</strong><br>Externer Zugriff: <strong>{html.escape(manager_url)}</strong></p>"""
+    primary_ip_value = net.get("primary_ip") or ""
+    primary_ip = html.escape(primary_ip_value or "noch keine IP")
+    if primary_ip_value:
+        url_host = f"[{primary_ip_value}]" if ":" in primary_ip_value else primary_ip_value
+        local_access_url = f"http://{url_host}"
+        local_access = f'<span class="local-access-address">{html.escape(local_access_url)}</span>'
     else:
-        autodarts_action = f"""<p class="muted">Die lokale Autodarts-Oberflaeche ist noch nicht bestaetigt erreichbar.<br>Erwartete Adresse: <strong>{html.escape(manager_url)}</strong>. Diese Seite aktualisiert sich automatisch.</p>"""
+        local_access = '<span class="local-access-address">noch nicht verfuegbar</span>'
+    install_state = "abgeschlossen" if INSTALL_MARKER.exists() else "laeuft oder wartet auf Netzwerk"
     content = f"""<section class="panel">
   <h2>Autodarts Pi OS ist bereit</h2>
   <p>Diese lokale Seite bleibt auf Bildschirm und Handy erreichbar. Von hier aus startest du die Autodarts- und Kamera-Einrichtung, sobald der lokale Dienst bereit ist.</p>
   <p>Zugewiesene IP: <strong>{primary_ip}</strong></p>
   <p>Installationsstatus: <strong>{html.escape(install_state)}</strong></p>
-  {autodarts_action}
+  <p>Zugriff vom Endgeraet im gleichen Netzwerk: {local_access}</p>
 </section>"""
     return render_page("Autodarts Pi OS", content, refresh_seconds=10)
 
