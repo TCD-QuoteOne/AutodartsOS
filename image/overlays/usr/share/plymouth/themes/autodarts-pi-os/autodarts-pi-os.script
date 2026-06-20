@@ -23,9 +23,34 @@ message_sprite = Sprite(message);
 message_sprite.SetX((screen_width - message.GetWidth()) / 2);
 message_sprite.SetY((screen_height + logo.GetHeight()) / 2 + 18);
 
+segment_count = 24;
+segment_gap = 5;
+segment_image = Image.Text("=", 0.39, 0.90, 0.31);
+segment_width = segment_image.GetWidth();
+bar_width = segment_count * segment_width + (segment_count - 1) * segment_gap;
+bar_y = (screen_height + logo.GetHeight()) / 2 + 60;
+
+for (i = 0; i < segment_count; i++) {
+  bar_segments[i] = Sprite(segment_image);
+  bar_segments[i].SetX((screen_width - bar_width) / 2 + i * (segment_width + segment_gap));
+  bar_segments[i].SetY(bar_y);
+  bar_segments[i].SetOpacity(0.18);
+}
+
+fun progress_callback(duration, progress) {
+  for (i = 0; i < segment_count; i++) {
+    if (progress >= ((i + 1) / segment_count)) {
+      bar_segments[i].SetOpacity(1);
+    } else {
+      bar_segments[i].SetOpacity(0.18);
+    }
+  }
+}
+
 fun refresh_callback() {
   logo_sprite.SetOpacity(1);
   message_sprite.SetOpacity(1);
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
+Plymouth.SetBootProgressFunction(progress_callback);
