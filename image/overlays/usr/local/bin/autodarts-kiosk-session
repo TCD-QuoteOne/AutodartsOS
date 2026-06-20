@@ -12,6 +12,7 @@ fi
 xset s off || true
 xset -dpms || true
 xset s noblank || true
+xsetroot -solid '#0b1118' || true
 unclutter -idle 1 -root >/dev/null 2>&1 &
 openbox >/dev/null 2>&1 &
 
@@ -26,23 +27,38 @@ CHROME_CACHE_DIR="$HOME/.cache/chromium-kiosk"
 mkdir -p "$CHROME_USER_DIR" "$CHROME_CACHE_DIR"
 chmod 700 "$CHROME_USER_DIR" "$CHROME_CACHE_DIR" || true
 
+FAILURES=0
 while true; do
-  "$BROWSER" \
-    --kiosk "$URL" \
-    --user-data-dir="$CHROME_USER_DIR" \
-    --disk-cache-dir="$CHROME_CACHE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    --disable-infobars \
-    --disable-session-crashed-bubble \
-    --disable-dev-shm-usage \
-    --disable-features=TranslateUI \
-    --ozone-platform=x11 \
-    --password-store=basic \
-    --autoplay-policy=no-user-gesture-required \
-    --noerrdialogs \
-    --check-for-update-interval=31536000 \
-    --start-maximized
-  echo "Chromium exited with code $?. Restarting in 5 seconds."
+  rm -f "$CHROME_USER_DIR"/SingletonCookie "$CHROME_USER_DIR"/SingletonLock "$CHROME_USER_DIR"/SingletonSocket
+
+  EXTRA_FLAGS=()
+  if (( FAILURES >= 3 )); then
+    EXTRA_FLAGS+=(--disable-gpu)
+  fi
+
+  if "$BROWSER" \
+      --kiosk "$URL" \
+      --user-data-dir="$CHROME_USER_DIR" \
+      --disk-cache-dir="$CHROME_CACHE_DIR" \
+      --no-first-run \
+      --no-default-browser-check \
+      --disable-infobars \
+      --disable-session-crashed-bubble \
+      --disable-dev-shm-usage \
+      --disable-features=TranslateUI \
+      --ozone-platform=x11 \
+      --password-store=basic \
+      --autoplay-policy=no-user-gesture-required \
+      --noerrdialogs \
+      --check-for-update-interval=31536000 \
+      --start-maximized \
+      "${EXTRA_FLAGS[@]}"; then
+    EXIT_CODE=0
+  else
+    EXIT_CODE=$?
+  fi
+
+  FAILURES=$((FAILURES + 1))
+  echo "Chromium exited with code $EXIT_CODE. Restarting in 5 seconds (attempt $FAILURES)."
   sleep 5
 done
