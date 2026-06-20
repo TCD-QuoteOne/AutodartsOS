@@ -264,7 +264,40 @@ Die Pruefung stellt sicher, dass Manifest, Hashes, entpackte Image-Groesse und F
 
 ## GitHub Release Erstellen
 
-Wenn die Pruefung gruen ist:
+Wenn die Pruefung gruen ist, werden laengere Release Notes am zuverlaessigsten zuerst als Markdown-Datei gespeichert und danach mit `--notes-file` an GitHub uebergeben.
+
+### Release Auf Dem Linux-Buildserver
+
+Version und Notes-Datei festlegen:
+
+```bash
+VERSION="v0.3.09"
+NOTES_FILE="/tmp/autodarts-pi-os-${VERSION}-notes.md"
+
+cat > "$NOTES_FILE" <<'EOF'
+## Autodarts Pi OS v0.3.09
+
+Dieses Release verbessert den Bootvorgang und sorgt fuer einen ruhigen, durchgaengigen Startbildschirm.
+
+### Neuerungen
+
+- Logo bleibt waehrend des Bootvorgangs sichtbar
+- Fortschrittsbalken und Prozentanzeige
+- Nahtloser Uebergang zum Kiosk
+- Keine sichtbare Shell waehrend des Starts
+- Automatische Weiterleitung zum Setup oder Kiosk
+
+### Stabilitaet
+
+- Kiosk-Neustartschleife nach Chromium-Fehler behoben
+- Chromium wird nach einem Fehler automatisch neu gestartet
+- Veraltete Chromium-Sperrdateien werden entfernt
+- GPU-Fallback nach mehreren Fehlstarts
+- Kiosk-Berechtigungen verbessert
+EOF
+```
+
+Danach das neue Release inklusive Image und Manifest erstellen:
 
 ```bash
 gh release create "$VERSION" \
@@ -272,8 +305,54 @@ gh release create "$VERSION" \
   "$MANIFEST_FILE" \
   --repo TCD-QuoteOne/AutodartsOS \
   --title "Autodarts Pi OS $VERSION" \
-  --notes "Autodarts Pi OS Lite release with bundled Autodarts installer support."
+  --notes-file "$NOTES_FILE"
 ```
+
+### Release Mit Windows PowerShell
+
+Dieser Block wird komplett in PowerShell eingefuegt. Die beiden Dateipfade muessen auf das lokal vorhandene Image und Manifest zeigen:
+
+```powershell
+$Version = "v0.3.09"
+$ImageFile = "D:\AutodartsOS\image_2026-06-20-AutodartsPiOS-lite.img.xz"
+$ManifestFile = "D:\AutodartsOS\image_2026-06-20-AutodartsPiOS-lite.img.rpi-imager-manifest"
+$NotesFile = Join-Path $env:TEMP "autodarts-pi-os-$Version-notes.md"
+
+@'
+## Autodarts Pi OS v0.3.09
+
+Dieses Release verbessert den Bootvorgang und sorgt fuer einen ruhigen, durchgaengigen Startbildschirm.
+
+### Neuerungen
+
+- Logo bleibt waehrend des Bootvorgangs sichtbar
+- Fortschrittsbalken und Prozentanzeige
+- Nahtloser Uebergang zum Kiosk
+- Keine sichtbare Shell waehrend des Starts
+- Automatische Weiterleitung zum Setup oder Kiosk
+
+### Stabilitaet
+
+- Kiosk-Neustartschleife nach Chromium-Fehler behoben
+- Chromium wird nach einem Fehler automatisch neu gestartet
+- Veraltete Chromium-Sperrdateien werden entfernt
+- GPU-Fallback nach mehreren Fehlstarts
+- Kiosk-Berechtigungen verbessert
+'@ | Set-Content -Path $NotesFile -Encoding utf8
+
+gh release create $Version `
+  $ImageFile `
+  $ManifestFile `
+  --repo TCD-QuoteOne/AutodartsOS `
+  --title "Autodarts Pi OS $Version" `
+  --notes-file $NotesFile
+
+if ($LASTEXITCODE -ne 0) {
+  throw "Das GitHub-Release konnte nicht erstellt werden."
+}
+```
+
+Vorher kann mit `gh auth status` geprueft werden, ob die GitHub-CLI angemeldet ist. Das Release darf noch nicht existieren; bestehende Releases werden stattdessen mit `gh release edit` beziehungsweise `gh release upload --clobber` aktualisiert.
 
 Wenn das Release bereits existiert und die Dateien ersetzt werden sollen:
 
