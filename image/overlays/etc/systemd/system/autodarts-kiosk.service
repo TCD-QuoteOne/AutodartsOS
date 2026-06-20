@@ -1,6 +1,6 @@
 [Unit]
 Description=Autodarts Pi OS kiosk display
-After=systemd-user-sessions.service autodarts-firstboot.service autodarts-webpanel.service
+After=plymouth-quit.service systemd-user-sessions.service autodarts-firstboot.service autodarts-webpanel.service
 Wants=autodarts-webpanel.service
 Conflicts=getty@tty1.service
 
